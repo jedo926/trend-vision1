@@ -2,6 +2,17 @@
 
 ---
 
+## 2026-06-29 — Mobile optimisation + AI nudge fix
+
+**Prompt:** optimize for mobile and fix the ai popup its not coming on anymore
+
+**What was done:**
+- `index.html` — Nudge script now polls for `V1Auth.getToken()` instead of firing 1.8s after page load. Previously it fired while the auth wall was still visible, so users never saw it; the `seen` flag was never set but the element was already hidden under the auth overlay.
+- `css/style.css` — Comprehensive mobile CSS at 768px: horizontally scrollable tabs (no-wrap + overflow-x auto), lesson title scales down, explainer stage height reduced, play button full-width, chat panel full-width with rounded top corners, AI nudge repositioned to avoid FAB overlap, content/lesson padding tightened.
+- `css/style.css` — New 480px breakpoint for small phones: further padding reduction, time-tag hidden, border-radius tightened.
+
+---
+
 ## 2026-06-29 — Interactive node navigation after animation
 
 **Prompt:** after the animation is done let the user scroll through the nodes select each of them

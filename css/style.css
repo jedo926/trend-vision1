@@ -1883,8 +1883,8 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
     box-shadow: var(--sh-lg);
   }
 
-  .content-area { padding: 16px; }
-  .app-header { padding: 0 12px; }
+  .content-area { padding: 12px; }
+  .app-header { padding: 0 10px; }
 
   .search-shortcut { display: none; }
   .mode-selector { display: none; }
@@ -1900,8 +1900,46 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
   }
   .step-node::after { display: none; }
 
-  .lesson-header { padding: 16px 16px 0; }
-  .lesson-body { padding: 16px; }
+  /* Lesson header */
+  .lesson-header { padding: 14px 14px 0; }
+  .lesson-title { font-size: 1.1rem; }
+  .lesson-title-row { gap: 10px; margin-bottom: 12px; }
+  .lesson-body { padding: 14px; }
+
+  /* Tabs — horizontally scrollable, no wrapping */
+  .lesson-tab-list {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    gap: 0;
+  }
+  .lesson-tab-list::-webkit-scrollbar { display: none; }
+  .lesson-tab-btn { white-space: nowrap; flex-shrink: 0; padding: 10px 14px; font-size: 0.78rem; }
+
+  /* Explainer stage */
+  .explainer-wrap { margin: 1rem 0 1.25rem; }
+  .explainer-stage { min-height: 170px; }
+  .ex-scene { min-height: 170px; }
+
+  /* Step nav */
+  .ex-step-nav { padding: 8px 0 2px; gap: 8px; }
+  .ex-nav-label { font-size: 0.73rem; min-width: 70px; }
+
+  /* Play button — full width on mobile */
+  .play-explainer-btn { width: 100%; justify-content: center; }
+
+  /* AI nudge — shift left so it doesn't overlap FAB */
+  .ai-nudge { right: 12px; width: calc(100vw - 80px); max-width: 240px; }
+
+  /* Chat panel full-width on mobile */
+  .chat-panel { width: 100vw; right: 0; border-radius: 16px 16px 0 0; bottom: 0; }
+  .chat-panel.open { bottom: 0; }
+
+  /* Welcome screen */
+  .welcome-heading { font-size: 1.6rem; }
+  .modules-grid { gap: 10px; }
 }
 
 /* ============================================================
@@ -2175,6 +2213,17 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 }
 .chat-lesson-link:hover { text-decoration: underline; }
 .chat-lesson-link::before { content: "→"; font-size: 0.7rem; }
+
+@media (max-width: 480px) {
+  .content-area { padding: 8px; }
+  .lesson-header { padding: 12px 12px 0; border-radius: 10px; }
+  .lesson-body { padding: 12px; }
+  .lesson-title { font-size: 1rem; }
+  .explainer-stage { min-height: 150px; }
+  .ex-scene { min-height: 150px; }
+  .lesson-time-tag { display: none; }
+  .lesson-header-actions .icon-btn { display: none; } /* hide mark-done on tiny screens */
+}
 
 @media (max-width: 540px) {
   .chat-panel { width: calc(100vw - 24px); right: 12px; }

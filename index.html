@@ -245,19 +245,21 @@
   <script>
     (function() {
       if (localStorage.getItem("v1_ai_nudge_seen")) return;
-      // Wait until after login renders
-      const show = () => {
-        const n = document.getElementById("ai-nudge");
-        if (n) { n.classList.add("ai-nudge-visible"); }
-      };
-      setTimeout(show, 1800);
+      const nudgeEl = document.getElementById("ai-nudge");
       const dismiss = () => {
-        const n = document.getElementById("ai-nudge");
-        if (n) n.classList.remove("ai-nudge-visible");
+        nudgeEl.classList.remove("ai-nudge-visible");
         localStorage.setItem("v1_ai_nudge_seen", "1");
       };
       document.getElementById("ai-nudge-dismiss").addEventListener("click", dismiss);
       document.getElementById("chat-fab").addEventListener("click", dismiss, { once: true });
+      // Wait for the user to actually be logged in, then show after a short delay
+      const poll = setInterval(() => {
+        if (window.V1Auth?.getToken()) {
+          clearInterval(poll);
+          setTimeout(() => nudgeEl.classList.add("ai-nudge-visible"), 1500);
+        }
+      }, 300);
+      setTimeout(() => clearInterval(poll), 60000);
     })();
   </script>
 
