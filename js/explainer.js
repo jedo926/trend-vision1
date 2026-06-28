@@ -223,80 +223,87 @@ window.V1Explainer = (function () {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // MAIN INIT — called per lesson
+  // MAIN — build scene immediately, wire audio in background
   // ─────────────────────────────────────────────────────────────
-  async function init(lessonId, moduleId, steps, stageEl, playBtn, progressEl) {
-    const token = window.V1Auth?.getToken();
-    if (!token) return;
-
-    let explainerData = null;
-    try {
-      const res = await fetch(`${API}/explainers/${lessonId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-      explainerData = await res.json();
-    } catch { return; }
-
+  function buildAndShow(lessonId, moduleId, steps, stageEl, playBtn, progressEl) {
     const sceneType = getSceneType(moduleId);
-    buildScene(sceneType, stageEl, steps);
-    activateStep(sceneType, stageEl, -1, steps); // intro state
 
-    stageEl.style.display = "block";
-    playBtn.style.display = "flex";
-
-    const timestamps = (explainerData.step_timestamps || []).sort((a, b) => a.t - b.t);
-    const audio = new Audio(explainerData.audio_url);
-    let lastStep = -2;
-    let playing = false;
-
-    function syncStep() {
-      const t = audio.currentTime;
-      let current = -1;
-      for (const ts of timestamps) {
-        if (ts.t <= t) current = ts.step;
-      }
-      if (current !== lastStep) {
-        lastStep = current;
-        activateStep(sceneType, stageEl, current, steps);
-      }
-      if (progressEl) {
-        const dur = audio.duration || explainerData.duration_seconds || 1;
-        progressEl.style.width = `${(t / dur) * 100}%`;
-      }
+    // Render scene immediately — always visible
+    try {
+      buildScene(sceneType, stageEl, steps);
+      activateStep(sceneType, stageEl, -1, steps);
+    } catch (e) {
+      console.warn("V1Explainer: scene build failed", e);
+      return;
     }
 
-    audio.addEventListener("timeupdate", syncStep);
-    audio.addEventListener("ended", () => {
-      playing = false;
-      playBtn.innerHTML = replayIcon + " Replay";
-      playBtn.disabled = false;
-      if (progressEl) progressEl.style.width = "100%";
-      activateStep(sceneType, stageEl, steps.length - 1, steps);
-    });
-    audio.addEventListener("error", () => {
-      playBtn.disabled = false;
-      playBtn.innerHTML = playIcon + " Play Explainer";
-    });
+    // Wire audio asynchronously — only shows Play button if audio exists
+    const playIcon    = `<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="3,2 12,7 3,12"/></svg>`;
+    const pauseIcon   = `<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="2" y="2" width="4" height="10" rx="1"/><rect x="8" y="2" width="4" height="10" rx="1"/></svg>`;
+    const replayIcon  = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7A5 5 0 1 0 5 3.5" stroke-linecap="round"/><path d="M3 2v3h3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-    const playIcon = `<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="3,2 12,7 3,12"/></svg>`;
-    const pauseIcon = `<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="2" y="2" width="4" height="10" rx="1"/><rect x="8" y="2" width="4" height="10" rx="1"/></svg>`;
-    const replayIcon = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7A5 5 0 1 0 5 3.5" stroke-linecap="round"/><path d="M3 2v3h3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    (async () => {
+      const token = window.V1Auth?.getToken();
+      if (!token) return;
 
-    playBtn.innerHTML = playIcon + " Play Explainer";
-    playBtn.addEventListener("click", () => {
-      if (!playing) {
-        if (audio.ended) { audio.currentTime = 0; lastStep = -2; activateStep(sceneType, stageEl, -1, steps); }
-        audio.play();
-        playing = true;
-        playBtn.innerHTML = pauseIcon + " Pause";
-      } else {
-        audio.pause();
+      let data = null;
+      try {
+        const res = await fetch(`${API}/explainers/${lessonId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        data = await res.json();
+      } catch { return; }
+
+      const timestamps = (data.step_timestamps || []).sort((a, b) => a.t - b.t);
+      const audio = new Audio(data.audio_url);
+      let lastStep = -2;
+      let playing = false;
+
+      audio.addEventListener("timeupdate", () => {
+        const t = audio.currentTime;
+        let current = -1;
+        for (const ts of timestamps) { if (ts.t <= t) current = ts.step; }
+        if (current !== lastStep) {
+          lastStep = current;
+          activateStep(sceneType, stageEl, current, steps);
+        }
+        if (progressEl) {
+          const dur = audio.duration || data.duration_seconds || 1;
+          progressEl.style.width = `${(t / dur) * 100}%`;
+        }
+      });
+      audio.addEventListener("ended", () => {
         playing = false;
-        playBtn.innerHTML = playIcon + " Resume";
-      }
-    });
+        playBtn.innerHTML = replayIcon + " Replay";
+        playBtn.disabled = false;
+        if (progressEl) progressEl.style.width = "100%";
+        activateStep(sceneType, stageEl, steps.length - 1, steps);
+      });
+      audio.addEventListener("error", () => {
+        playBtn.disabled = false;
+        playBtn.innerHTML = playIcon + " Play Explainer";
+      });
+
+      playBtn.innerHTML = playIcon + " Play Explainer";
+      playBtn.style.display = "flex";
+      playBtn.addEventListener("click", () => {
+        if (!playing) {
+          if (audio.ended) {
+            audio.currentTime = 0; lastStep = -2;
+            activateStep(sceneType, stageEl, -1, steps);
+          }
+          audio.play();
+          playing = true;
+          playBtn.innerHTML = pauseIcon + " Pause";
+        } else {
+          audio.pause();
+          playing = false;
+          playBtn.innerHTML = playIcon + " Resume";
+        }
+      });
+    })();
   }
 
-  return { init, getSceneType };
+  return { buildAndShow, getSceneType };
 })();

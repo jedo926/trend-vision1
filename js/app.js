@@ -742,31 +742,32 @@ window.V1App = {
     this.bindTabEvents(tabList, body);
 
     // ---- EXPLAINER STAGE ----
-    const explainerWrap = document.createElement("div");
-    explainerWrap.className = "explainer-wrap";
-
-    const playBtn = document.createElement("button");
-    playBtn.className = "play-explainer-btn";
-    playBtn.style.display = "none";
-
-    const progressTrack = document.createElement("div");
-    progressTrack.className = "explainer-progress-track";
-    const progressFill = document.createElement("div");
-    progressFill.className = "explainer-progress-fill";
-    progressTrack.appendChild(progressFill);
-
-    const stageEl = document.createElement("div");
-    stageEl.className = "explainer-stage";
-    stageEl.style.display = "none";
-
-    explainerWrap.appendChild(playBtn);
-    explainerWrap.appendChild(progressTrack);
-    explainerWrap.appendChild(stageEl);
-    body.appendChild(explainerWrap);
-
     if (window.V1Explainer) {
-      const stepStrings = (les.content.steps || []);
-      window.V1Explainer.init(les.id, mod.id, stepStrings, stageEl, playBtn, progressFill);
+      const stepStrings = les.content.steps || [];
+
+      const explainerWrap = document.createElement("div");
+      explainerWrap.className = "explainer-wrap";
+
+      const playBtn = document.createElement("button");
+      playBtn.className = "play-explainer-btn";
+      playBtn.style.display = "none";
+
+      const progressTrack = document.createElement("div");
+      progressTrack.className = "explainer-progress-track";
+      const progressFill = document.createElement("div");
+      progressFill.className = "explainer-progress-fill";
+      progressTrack.appendChild(progressFill);
+
+      const stageEl = document.createElement("div");
+      stageEl.className = "explainer-stage";
+
+      explainerWrap.appendChild(playBtn);
+      explainerWrap.appendChild(progressTrack);
+      explainerWrap.appendChild(stageEl);
+      body.appendChild(explainerWrap);
+
+      // Build scene immediately — always visible, no audio required
+      window.V1Explainer.buildAndShow(les.id, mod.id, stepStrings, stageEl, playBtn, progressFill);
     }
 
     // ---- LESSON FOOTER ----

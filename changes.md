@@ -2,6 +2,17 @@
 
 ---
 
+## 2026-06-29 — Fix: animations now always visible, not gated behind audio
+
+**Prompt:** im generating the audio but dont see any animations or new visualisations
+
+**What was done:**
+- `js/explainer.js` — Replaced `init()` with `buildAndShow()`: scene is built and rendered immediately (synchronously) on every lesson load, no fetch needed. Audio wiring happens async in the background; Play button only appears once audio is confirmed to exist. Previously the entire stage was hidden until the async fetch succeeded, so users with no generated audio (or on ungenerated lessons) saw nothing.
+- `js/app.js` — Updated call from `V1Explainer.init()` to `V1Explainer.buildAndShow()` to match new API.
+- Redeployed to Vercel — https://trendvision1.vercel.app
+
+---
+
 ## 2026-06-29 — Animated Visualizations + AI Voice Explainers
 
 **Prompt:** ok i need visualization on every scenario and the steps on every module make the visualization animated and pair it with a ai voice explainer create explainers with my openai api key once generated embed it in the site and add a play explainer it should start the voice explaining the animation and whats happening
