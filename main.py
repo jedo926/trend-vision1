@@ -8,7 +8,6 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_community.vectorstores import SupabaseVectorStore
 from langchain.agents import create_agent
 from langchain.tools import tool
 from supabase.client import create_client
@@ -36,13 +35,6 @@ supabase_client = create_client(
     os.environ["SUPABASE_SERVICE_ROLE_KEY"],
 )
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-vector_store = SupabaseVectorStore(
-    client=supabase_client,
-    embedding=embeddings,
-    table_name="documents",
-    query_name="match_documents",
-)
-retriever = vector_store.as_retriever(search_kwargs={"k": 4})
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
 
 SYSTEM_PROMPT = (
@@ -88,9 +80,16 @@ def ask_agent(
     @tool
     def search_vision_one_docs(query: str) -> str:
         """Search Trend Micro Vision One documentation for technical setup, configuration, and platform guidance."""
-        docs = retriever.invoke(query)
-        retrieved_docs.extend(docs)
-        return "\n\n".join(doc.page_content for doc in docs)
+        vector = embeddings.embed_query(query)
+        res = supabase_client.rpc("match_documents", {
+            "query_embedding": vector,
+            "match_count": 4,
+            "match_threshold": 0.5,
+        }).execute()
+        rows = res.data or []
+        for row in rows:
+            retrieved_docs.append(row)
+        return "\n\n".join(row.get("content", "") for row in rows)
 
     agent = create_agent(
         model=llm,
@@ -102,9 +101,10 @@ def ask_agent(
 
     sources = []
     seen = set()
-    for doc in retrieved_docs:
-        title = doc.metadata.get("title", "Documentation Page")
-        url = doc.metadata.get("url", "https://docs.trendmicro.com/")
+    for row in retrieved_docs:
+        meta = row.get("metadata") or {}
+        title = meta.get("title", "Documentation Page")
+        url = meta.get("url", "https://docs.trendmicro.com/")
         if title not in seen:
             seen.add(title)
             sources.append({"title": title, "url": url})
