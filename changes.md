@@ -2,6 +2,17 @@
 
 ---
 
+## 2026-06-28 — Fix Vercel CSS missing
+
+**Prompt:** the css is gone the website is just raw text
+
+**What was done:**
+- `vercel.json` — Removed the `builds` block that only declared `index.html` as a static file (causing Vercel to ignore `css/` and `js/`). Replaced with minimal config (`cleanUrls`, `trailingSlash`) so Vercel auto-serves the entire project directory as a static site.
+- `.vercelignore` — Added to exclude `venv/`, `__pycache__`, `.env`, `supabase/.temp/`, `docs_input/` from upload.
+- Redeployed to production — https://trendvision1.vercel.app
+
+---
+
 ## 2026-06-28 — Production: Auth, Rate Limiting, GitHub, Vercel/Railway
 
 **Prompt:** push everything to GitHub, add Supabase auth, enable RLS, add rate limiting, get it on Vercel ready to show off
