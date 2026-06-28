@@ -178,6 +178,7 @@
           <div class="health-item"><div class="health-label">Supabase</div><div class="health-value" id="h-supabase">—</div></div>
           <div class="health-item"><div class="health-label">Documents</div><div class="health-value" id="h-docs">—</div></div>
           <div class="health-item"><div class="health-label">Users</div><div class="health-value" id="h-users">—</div></div>
+          <div class="health-item"><div class="health-label">Docling</div><div class="health-value" id="h-docling">—</div></div>
         </div>
       </div>
     </div>
@@ -291,6 +292,7 @@
       document.getElementById("h-backend").innerHTML = dot(true);
       document.getElementById("h-supabase").innerHTML = dot(data.supabase);
       document.getElementById("h-docs").textContent = data.document_count >= 0 ? data.document_count : "—";
+      document.getElementById("h-docling").innerHTML = data.docling ? dot(true) : `<span class="status-dot dot-grey"></span>Not set`;
     } catch {
       document.getElementById("h-backend").innerHTML = `<span class="status-dot dot-red"></span>Offline`;
     }

@@ -1,5 +1,6 @@
 import os
 import tempfile
+import httpx
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -40,6 +41,7 @@ supabase_client = create_client(
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
 md_converter = MarkItDown()
+DOCLING_URL = os.environ.get("DOCLING_URL", "").rstrip("/")  # e.g. https://docling.up.railway.app
 
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "abdulmajeedtayyar92@gmail.com").split(",")}
 
@@ -142,7 +144,13 @@ def admin_health(user=Depends(verify_admin)):
     except Exception:
         doc_count = -1
         supabase_ok = False
-    return {"backend": "ok", "supabase": supabase_ok, "document_count": doc_count}
+    return {
+        "backend": "ok",
+        "supabase": supabase_ok,
+        "document_count": doc_count,
+        "docling": bool(DOCLING_URL),
+        "docling_url": DOCLING_URL or None,
+    }
 
 @app.get("/admin/users")
 def list_users(user=Depends(verify_admin)):
@@ -175,16 +183,34 @@ def delete_all_documents(user=Depends(verify_admin)):
 
 @app.post("/admin/ingest")
 async def ingest_document(file: UploadFile = File(...), user=Depends(verify_admin)):
-    suffix = Path(file.filename or "upload.pdf").suffix or ".pdf"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(await file.read())
-        tmp_path = tmp.name
+    filename = file.filename or "upload.pdf"
+    suffix = Path(filename).suffix or ".pdf"
+    file_bytes = await file.read()
 
-    try:
-        result = md_converter.convert(tmp_path)
-        text = result.text_content or ""
-    finally:
-        os.unlink(tmp_path)
+    # Use docling-serve if configured, else markitdown
+    if DOCLING_URL and suffix.lower() in {".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm"}:
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                resp = await client.post(
+                    f"{DOCLING_URL}/v1alpha/convert/file",
+                    files={"files": (filename, file_bytes, "application/octet-stream")},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                # docling-serve returns list of documents
+                doc = data.get("documents", [{}])[0]
+                text = doc.get("md_content") or doc.get("text", "")
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Docling error: {e}")
+    else:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+        try:
+            result = md_converter.convert(tmp_path)
+            text = result.text_content or ""
+        finally:
+            os.unlink(tmp_path)
 
     if not text.strip():
         raise HTTPException(status_code=422, detail="Could not extract text from file")
