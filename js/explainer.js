@@ -321,21 +321,47 @@ window.V1Explainer = (function () {
     btn.style.display = "flex";
   }
 
+  // Derive step timestamps from script text character positions.
+  // TTS speed is ~constant so char-position / total-chars ≈ time / duration.
+  function _scriptTimestamps(script, steps, duration) {
+    const ts = [];
+    const NUM_WORDS = ["one","two","three","four","five","six","seven","eight","nine","ten"];
+    for (let i = 0; i < steps.length; i++) {
+      const n = i + 1;
+      // Look for "Step 1:" or "Step one:" (case-insensitive)
+      const patterns = [`Step ${n}:`, `step ${n}:`, `Step ${NUM_WORDS[i]}:`, `step ${NUM_WORDS[i]}:`];
+      let pos = -1;
+      for (const p of patterns) {
+        pos = script.indexOf(p);
+        if (pos >= 0) break;
+      }
+      if (pos >= 0) {
+        ts.push({ step: i, t: (pos / script.length) * duration });
+      }
+    }
+    return ts;
+  }
+
   function _wireAudio(data, sceneType, stageEl, playBtn, progressEl, steps) {
     const raw = (data.step_timestamps || []).sort((a, b) => a.t - b.t);
-
-    // If Whisper didn't detect all "Step N" markers, fill in evenly-spaced fallbacks
     const dur = data.duration_seconds || 30;
     const detected = new Set(raw.filter(ts => ts.step >= 0).map(ts => ts.step));
     const timestamps = [...raw];
+
     if (detected.size < steps.length) {
-      const introEnd = dur * 0.18;  // first 18% = whatThisMeans + scenario
-      const stepSpan = (dur - introEnd) / steps.length;
-      steps.forEach((_, i) => {
-        if (!detected.has(i)) {
-          timestamps.push({ step: i, t: introEnd + i * stepSpan });
-        }
-      });
+      // Primary fallback: derive from script text proportions (accurate because TTS speed is constant)
+      if (data.script && data.script.length > 10) {
+        const derived = _scriptTimestamps(data.script, steps, dur);
+        derived.forEach(ts => { if (!detected.has(ts.step)) { timestamps.push(ts); detected.add(ts.step); } });
+      }
+      // Secondary fallback: even distribution (last resort)
+      if (detected.size < steps.length) {
+        const introEnd = dur * 0.2;
+        const span = (dur - introEnd) / steps.length;
+        steps.forEach((_, i) => {
+          if (!detected.has(i)) timestamps.push({ step: i, t: introEnd + i * span });
+        });
+      }
       timestamps.sort((a, b) => a.t - b.t);
     }
 

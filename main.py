@@ -276,13 +276,17 @@ async def _generate_explainer(lesson: ExplainerLesson) -> dict:
     words = list(getattr(transcript, "words", []) or [])
 
     # Map "Step N" markers → timestamps
+    # Nova TTS says "Step one" / "Step two" etc., so check both digit and word forms
+    _NUM_WORDS = {"one":1,"two":2,"three":3,"four":4,"five":5,
+                  "six":6,"seven":7,"eight":8,"nine":9,"ten":10}
     step_timestamps = [{"step": -1, "t": 0.0}]  # intro
     for idx in range(len(lesson.steps)):
-        marker = str(idx + 1)
+        target_num = idx + 1
         for j, w in enumerate(words):
-            if w.word.strip().lower() == "step" and j + 1 < len(words):
-                nxt = words[j + 1].word.strip().rstrip(".:,")
-                if nxt == marker:
+            if w.word.strip().lower() in ("step", "step:") and j + 1 < len(words):
+                nxt = words[j + 1].word.strip().lower().rstrip(".:,")
+                # Match digit ("1") or word ("one")
+                if nxt == str(target_num) or _NUM_WORDS.get(nxt) == target_num:
                     step_timestamps.append({"step": idx, "t": float(w.start)})
                     break
 
@@ -311,7 +315,7 @@ def list_available_explainers(user=Depends(verify_token)):
 @app.get("/explainers/{lesson_id}")
 def get_explainer(lesson_id: str, user=Depends(verify_token)):
     res = (supabase_client.table("lesson_explainers")
-           .select("audio_url, step_timestamps, duration_seconds")
+           .select("audio_url, step_timestamps, duration_seconds, script")
            .eq("lesson_id", lesson_id).execute())
     if not res.data:
         raise HTTPException(status_code=404, detail="No explainer")
@@ -327,6 +331,36 @@ def list_explainers(user=Depends(verify_admin)):
 @app.post("/admin/explainers/generate")
 async def generate_explainer(lesson: ExplainerLesson, user=Depends(verify_admin)):
     return await _generate_explainer(lesson)
+
+@app.post("/admin/explainers/retimestamp")
+def retimestamp_explainers(user=Depends(verify_admin)):
+    """Re-extract step timestamps from stored scripts without calling TTS again."""
+    _NUM_WORDS = ["one","two","three","four","five","six","seven","eight","nine","ten"]
+    rows = supabase_client.table("lesson_explainers").select("lesson_id, script, duration_seconds, step_timestamps").execute().data or []
+    results = []
+    for row in rows:
+        script = row.get("script") or ""
+        dur = row.get("duration_seconds") or 0
+        if not script or not dur:
+            results.append({"lesson_id": row["lesson_id"], "steps_found": 0, "skipped": True})
+            continue
+        # Count steps by finding "Step N:" markers
+        step_timestamps = [{"step": -1, "t": 0.0}]
+        i = 1
+        while True:
+            markers = [f"Step {i}:", f"step {i}:", f"Step {_NUM_WORDS[i-1]}:", f"step {_NUM_WORDS[i-1]}:"] if i <= len(_NUM_WORDS) else [f"Step {i}:", f"step {i}:"]
+            pos = -1
+            for m in markers:
+                pos = script.find(m)
+                if pos >= 0:
+                    break
+            if pos < 0:
+                break
+            step_timestamps.append({"step": i - 1, "t": round((pos / len(script)) * dur, 3)})
+            i += 1
+        supabase_client.table("lesson_explainers").update({"step_timestamps": step_timestamps}).eq("lesson_id", row["lesson_id"]).execute()
+        results.append({"lesson_id": row["lesson_id"], "steps_found": len(step_timestamps) - 1})
+    return {"results": results}
 
 @app.delete("/admin/explainers/{lesson_id}")
 def delete_explainer(lesson_id: str, user=Depends(verify_admin)):

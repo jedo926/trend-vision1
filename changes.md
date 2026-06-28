@@ -2,6 +2,22 @@
 
 ---
 
+## 2026-06-29 — Fix: accurate animation sync from script text positions
+
+**Prompt:** the animation isn't accurate at all for some all the audios have been generated fix the animations make them work with the audio
+
+**What was done:**
+- **Root cause found**: Nova TTS pronounces "Step 1" as "step one", so Whisper transcribes a word, not a digit. The backend detection only matched digits ("1","2","3"), so all stored `step_timestamps` only had `{step:-1, t:0}` — the intro marker. Animations were stuck at initial state the whole playback.
+- **`main.py`** — Fixed Whisper marker detection to also match word-form numbers ("one","two","three"…"ten") in addition to digits, so future generations store correct timestamps.
+- **`main.py`** — Added `POST /admin/explainers/retimestamp` endpoint: re-derives timestamps from the stored `script` column using character-position ratios (char_pos / script_len × duration). No TTS or Whisper API calls needed — instant, free to run.
+- **`main.py`** — `GET /explainers/{lesson_id}` now also returns `script` field.
+- **`js/explainer.js`** — Replaced flat even-distribution fallback with `_scriptTimestamps()`: finds "Step N:" positions in the script text, converts char positions to times proportionally. Much more accurate than fixed 18% intro guess.
+- **`admin.html`** — Added "Fix Timestamps" button that calls the retimestamp endpoint for all lessons in one click.
+
+**Next step for user**: Go to admin → AI Voice Explainers → click "Fix Timestamps" to backfill accurate timestamps for all 58 existing lessons instantly.
+
+---
+
 ## 2026-06-29 — Fix: animation sync + /explainers 404
 
 **Prompt:** some animations just aren't playing until the audio ends then they load / /explainers 404

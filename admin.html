@@ -237,6 +237,7 @@
           <span id="explainer-count" style="font-size:.78rem;color:var(--t3)">— / 58</span>
           <button class="btn btn-outline btn-sm" id="refresh-explainers-btn">Refresh</button>
           <button class="btn btn-sm" id="setup-explainers-btn" style="background:var(--s3);color:var(--t2)">Setup</button>
+          <button class="btn btn-sm" id="retimestamp-btn" style="background:var(--s2);color:var(--t1)" title="Re-extract step timestamps from stored scripts (no API cost)">Fix Timestamps</button>
           <button class="btn btn-sm" id="gen-all-btn" style="background:var(--accent);color:#fff">Generate All</button>
         </div>
       </div>
@@ -536,6 +537,21 @@
   };
 
   document.getElementById("refresh-explainers-btn").addEventListener("click", loadExplainers);
+
+  document.getElementById("retimestamp-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("retimestamp-btn");
+    btn.disabled = true; btn.textContent = "Working…";
+    try {
+      const res = await api("/admin/explainers/retimestamp", { method: "POST" });
+      const found = (res.results || []).filter(r => r.steps_found > 0).length;
+      btn.textContent = `Done — ${found}/${(res.results||[]).length} fixed`;
+      loadExplainers();
+    } catch(e) {
+      btn.textContent = "Error — check console";
+      console.error(e);
+    }
+    setTimeout(() => { btn.disabled = false; btn.textContent = "Fix Timestamps"; }, 4000);
+  });
 
   document.getElementById("setup-explainers-btn").addEventListener("click", async () => {
     const block = document.getElementById("setup-sql-block");
