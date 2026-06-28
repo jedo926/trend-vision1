@@ -79,7 +79,7 @@ def health():
 @app.post("/query")
 @limiter.limit("20/minute")
 def ask_agent(
-    http_request: Request,
+    request: Request,
     body: QueryRequest,
     user=Depends(verify_token),
 ):
