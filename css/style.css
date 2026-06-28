@@ -2369,7 +2369,7 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 ═══════════════════════════════════════════════════════════════ */
 
 .explainer-wrap {
-  margin: 0 0 1.5rem;
+  margin: 1.25rem 0 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 0;
