@@ -2,6 +2,25 @@
 
 ---
 
+## 2026-06-28 — Docling Railway service deployed + wired to backend
+
+**Prompt:** do it for me with the mcp
+
+**What was done:**
+- Used `railway templates search` to find the "Docling - OCR anything" template (code: `docling-ocr-anything`)
+- Used `railway deploy -t docling-ocr-anything` to spin up docling + Caddy reverse proxy inside the existing `trend-vision1-api` Railway project
+- Discovered correct API path from `/openapi.json`: `/v1/convert/file` (not `/v1alpha/...`), response at `data["document"]["md_content"]`
+- Fixed `main.py` docling call with correct path and response parsing
+- Set `DOCLING_URL=https://caddy-production-f2af.up.railway.app` on the `trend-vision1-api` service
+- Redeployed backend
+
+**How ingestion now works:**
+- PDF, Word, PPT, XLSX, HTML → routed through Docling (ML-quality OCR + table parsing)
+- All other formats (MD, TXT, CSV, etc.) → handled by markitdown (lightweight, local)
+- Admin panel Docling health card now shows "Online" (green)
+
+---
+
 ## 2026-06-28 — Admin panel + document ingestion (markitdown)
 
 **Prompt:** i need an admin panel to check on the health and manage users and stuff also i want you to go into railway and integrate docling and markitdown so i can add pdfs and actually update the rag system with new info whenever i need
