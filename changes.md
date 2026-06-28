@@ -2,6 +2,30 @@
 
 ---
 
+## 2026-06-28 — Production: Auth, Rate Limiting, GitHub, Vercel/Railway
+
+**Prompt:** push everything to GitHub, add Supabase auth, enable RLS, add rate limiting, get it on Vercel ready to show off
+
+**What was done:**
+- `main.py` — Added `slowapi` rate limiter (20 req/min per IP on `/query`, 60/min global). Added `verify_token` dependency using `HTTPBearer` + `supabase_client.auth.get_user()` to validate Supabase JWTs on every `/query` call. Added `/health` endpoint. Moved env var access to `os.environ[]` (raises on missing key instead of silently passing `None`).
+- `js/auth.js` — New file: Supabase JS auth module. Handles `signIn`, `signUp`, `signOut`, session restore via `onAuthStateChange`. Shows/hides `#auth-wall` and blurs `#app-shell-inner` based on session state.
+- `index.html` — Added `#auth-wall` overlay (email/password form with sign-in/sign-up toggle). Wrapped app in `#app-shell-inner` for blur effect. Loaded Supabase JS SDK from CDN. Chat script now includes `Authorization: Bearer <token>` header in API requests. Auth form script wires up V1Auth. Config block at top: `window.SUPABASE_URL`, `window.SUPABASE_ANON_KEY`, `window.CHAT_API_URL`.
+- `css/style.css` — Auth wall + card styles: full-screen overlay, centered card, form fields, error state, sign-in/sign-up toggle.
+- `.gitignore` — Excludes `.env`, `venv/`, `__pycache__/`, `.vercel/`.
+- `.env.example` — Safe-to-commit template showing required env vars.
+- `vercel.json` — Static site config for Vercel frontend deployment.
+- `railway.toml` — Already present; backend deploys to Railway.
+- `requirements.txt` — Regenerated with `slowapi==0.1.10`.
+- **GitHub** — Repo created at https://github.com/jedo926/trend-vision1. `.env` scrubbed from all history with `git filter-branch` before push.
+
+**RLS SQL to run in Supabase SQL editor:**
+```sql
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service role full access" ON documents USING (true) WITH CHECK (true);
+```
+
+---
+
 ## 2026-06-28 — Chatbot UI
 
 **Prompt:** i dont see a chatbot on the site?
