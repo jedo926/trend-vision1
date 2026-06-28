@@ -1,7 +1,11 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import SupabaseVectorStore
@@ -11,7 +15,12 @@ from supabase.client import create_client
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
-app = FastAPI()
+# ── Rate limiter ──────────────────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+
+app = FastAPI(title="Vision One RAG API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,9 +30,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Supabase + vector store ───────────────────────────────────
 supabase_client = create_client(
-    os.environ.get("SUPABASE_URL"),
-    os.environ.get("SUPABASE_SERVICE_ROLE_KEY"),
+    os.environ["SUPABASE_URL"],
+    os.environ["SUPABASE_SERVICE_ROLE_KEY"],
 )
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 vector_store = SupabaseVectorStore(
@@ -33,7 +43,6 @@ vector_store = SupabaseVectorStore(
     query_name="match_documents",
 )
 retriever = vector_store.as_retriever(search_kwargs={"k": 4})
-
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
 
 SYSTEM_PROMPT = (
@@ -44,13 +53,36 @@ SYSTEM_PROMPT = (
     "If information is completely missing from the docs, state that transparently, but remain helpful and encouraging."
 )
 
+# ── Auth ──────────────────────────────────────────────────────
+bearer_scheme = HTTPBearer(auto_error=False)
 
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    try:
+        user = supabase_client.auth.get_user(credentials.credentials)
+        if not user or not user.user:
+            raise ValueError("invalid")
+        return user.user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+# ── Schema ────────────────────────────────────────────────────
 class QueryRequest(BaseModel):
     question: str
 
+# ── Endpoints ────────────────────────────────────────────────
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 @app.post("/query")
-def ask_agent(request: QueryRequest):
+@limiter.limit("20/minute")
+def ask_agent(
+    http_request: Request,
+    body: QueryRequest,
+    user=Depends(verify_token),
+):
     retrieved_docs = []
 
     @tool
@@ -65,8 +97,7 @@ def ask_agent(request: QueryRequest):
         tools=[search_vision_one_docs],
         system_prompt=SYSTEM_PROMPT,
     )
-
-    result = agent.invoke({"messages": [{"role": "user", "content": request.question}]})
+    result = agent.invoke({"messages": [{"role": "user", "content": body.question}]})
     answer = result["messages"][-1].content
 
     sources = []
