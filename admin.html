@@ -10,6 +10,7 @@
     window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2dWVodmhuYWRrdGhqenVjbnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MzI3MTgsImV4cCI6MjA5ODIwODcxOH0.8yMALrJhQfZdvOcBOcL9ENCZ2huy3Q6WJBOpQ39Yc94";
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/data/modules.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -228,6 +229,44 @@
       </div>
     </div>
 
+    <!-- Explainer Management -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">AI Voice Explainers</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="explainer-count" style="font-size:.78rem;color:var(--t3)">— / 58</span>
+          <button class="btn btn-outline btn-sm" id="refresh-explainers-btn">Refresh</button>
+          <button class="btn btn-sm" id="setup-explainers-btn" style="background:var(--s3);color:var(--t2)">Setup</button>
+          <button class="btn btn-sm" id="gen-all-btn" style="background:var(--accent);color:#fff">Generate All</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="explainer-progress-wrap" style="display:none;margin-bottom:12px">
+          <div style="font-size:.78rem;color:var(--t2);margin-bottom:6px" id="explainer-gen-status">Generating…</div>
+          <div style="height:4px;background:var(--s3);border-radius:2px;overflow:hidden">
+            <div id="explainer-gen-bar" style="height:100%;width:0%;background:var(--accent);transition:width .3s;border-radius:2px"></div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="explainers-table">
+            <thead><tr><th>Lesson ID</th><th>Duration</th><th>Generated</th><th>Steps</th><th></th></tr></thead>
+            <tbody id="explainers-tbody"><tr class="empty-row"><td colspan="5">Click Refresh to load…</td></tr></tbody>
+          </table>
+        </div>
+        <div id="setup-sql-block" style="display:none;margin-top:12px">
+          <div style="font-size:.78rem;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Run this SQL in the Supabase SQL Editor once:</div>
+          <pre style="background:var(--s2);border:1px solid var(--s3);padding:12px;border-radius:6px;font-size:.75rem;color:var(--t1);overflow-x:auto;white-space:pre">CREATE TABLE IF NOT EXISTS lesson_explainers (
+  lesson_id TEXT PRIMARY KEY,
+  audio_url TEXT NOT NULL,
+  duration_seconds FLOAT,
+  step_timestamps JSONB,
+  script TEXT,
+  generated_at TIMESTAMPTZ DEFAULT NOW()
+);</pre>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -282,6 +321,7 @@
     loadHealth();
     loadDocs();
     loadUsers();
+    loadExplainers();
   }
 
   // ── Health ──
@@ -420,6 +460,126 @@
       setTimeout(() => { progWrap.style.display = "none"; progBar.style.width = "0%"; }, 2000);
     }
   }
+
+  // ── Explainers ──
+  async function loadExplainers() {
+    const tbody = document.getElementById("explainers-tbody");
+    try {
+      const data = await api("/admin/explainers");
+      const generated = data.explainers || [];
+      const total = getAllLessons().length;
+      document.getElementById("explainer-count").textContent = `${generated.length} / ${total}`;
+
+      if (!generated.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No explainers generated yet</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = generated.map(e => `
+        <tr>
+          <td class="mono">${esc(e.lesson_id)}</td>
+          <td>${e.duration_seconds ? Math.round(e.duration_seconds) + "s" : "—"}</td>
+          <td class="mono">${fmtDate(e.generated_at)}</td>
+          <td>—</td>
+          <td>
+            <button class="btn btn-sm" style="background:var(--accent);color:#fff;margin-right:4px"
+              onclick="regenExplainer('${esc(e.lesson_id)}')">Regen</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteExplainer('${esc(e.lesson_id)}')">Delete</button>
+          </td>
+        </tr>`).join("");
+    } catch (e) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Error: ${esc(e.message)}</td></tr>`;
+    }
+  }
+
+  function getAllLessons() {
+    if (!window.V1_MODULES) return [];
+    return window.V1_MODULES.flatMap(mod =>
+      (mod.lessons || []).map(les => ({ mod, les }))
+    );
+  }
+
+  window.deleteExplainer = async (id) => {
+    if (!confirm(`Delete explainer for "${id}"?`)) return;
+    try {
+      await api(`/admin/explainers/${id}`, { method: "DELETE" });
+      loadExplainers();
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
+  window.regenExplainer = async (lessonId) => {
+    const all = getAllLessons();
+    const found = all.find(({ les }) => les.id === lessonId);
+    if (!found) { alert("Lesson data not found in V1_MODULES"); return; }
+    const { mod, les } = found;
+    try {
+      document.getElementById("explainer-gen-status").textContent = `Generating: ${les.title}…`;
+      document.getElementById("explainer-progress-wrap").style.display = "block";
+      document.getElementById("explainer-gen-bar").style.width = "30%";
+      await api("/admin/explainers/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lesson_id: les.id,
+          what_this_means: les.content.whatThisMeans || "",
+          scenario: les.content.scenario || "",
+          steps: les.content.steps || [],
+        }),
+      });
+      document.getElementById("explainer-gen-bar").style.width = "100%";
+      document.getElementById("explainer-gen-status").textContent = `Done: ${les.title}`;
+      setTimeout(() => { document.getElementById("explainer-progress-wrap").style.display = "none"; }, 2000);
+      loadExplainers();
+    } catch (e) {
+      alert("Generation error: " + e.message);
+      document.getElementById("explainer-progress-wrap").style.display = "none";
+    }
+  };
+
+  document.getElementById("refresh-explainers-btn").addEventListener("click", loadExplainers);
+
+  document.getElementById("setup-explainers-btn").addEventListener("click", async () => {
+    const block = document.getElementById("setup-sql-block");
+    block.style.display = block.style.display === "none" ? "block" : "none";
+    try {
+      await api("/admin/explainers/setup", { method: "POST" });
+    } catch { /* non-fatal */ }
+  });
+
+  document.getElementById("gen-all-btn").addEventListener("click", async () => {
+    const all = getAllLessons();
+    if (!all.length) { alert("V1_MODULES not loaded — check that js/data/modules.js loaded correctly."); return; }
+    if (!confirm(`Generate AI voice explainers for all ${all.length} lessons? This will call OpenAI TTS + Whisper and may take ~15 minutes. Already-generated lessons will be overwritten.`)) return;
+
+    const progWrap = document.getElementById("explainer-progress-wrap");
+    const progBar  = document.getElementById("explainer-gen-bar");
+    const genStatus = document.getElementById("explainer-gen-status");
+    progWrap.style.display = "block";
+
+    let done = 0;
+    for (const { mod, les } of all) {
+      genStatus.textContent = `[${done + 1}/${all.length}] ${les.title}…`;
+      progBar.style.width = `${Math.round((done / all.length) * 100)}%`;
+      try {
+        await api("/admin/explainers/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lesson_id: les.id,
+            what_this_means: les.content.whatThisMeans || "",
+            scenario: les.content.scenario || "",
+            steps: les.content.steps || [],
+          }),
+        });
+      } catch (e) {
+        console.warn(`Failed: ${les.id}`, e.message);
+      }
+      done++;
+    }
+    progBar.style.width = "100%";
+    genStatus.textContent = `Done! ${done} lessons processed.`;
+    setTimeout(() => { progWrap.style.display = "none"; }, 3000);
+    loadExplainers();
+  });
 
   // ── Utils ──
   function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }

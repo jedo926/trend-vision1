@@ -1,7 +1,9 @@
 import os
+import io
 import tempfile
 import httpx
 from pathlib import Path
+from openai import OpenAI
 from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -41,7 +43,8 @@ supabase_client = create_client(
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
 md_converter = MarkItDown()
-DOCLING_URL = os.environ.get("DOCLING_URL", "").rstrip("/")  # e.g. https://docling.up.railway.app
+DOCLING_URL = os.environ.get("DOCLING_URL", "").rstrip("/")
+openai_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "abdulmajeedtayyar92@gmail.com").split(",")}
 
@@ -228,3 +231,120 @@ async def ingest_document(file: UploadFile = File(...), user=Depends(verify_admi
 
     supabase_client.table("documents").insert(rows).execute()
     return {"ingested_chunks": len(rows), "filename": file.filename}
+
+# ── Explainer models ──────────────────────────────────────────
+class ExplainerLesson(BaseModel):
+    lesson_id: str
+    what_this_means: str
+    scenario: str
+    steps: list[str]
+
+# ── Explainer helpers ─────────────────────────────────────────
+async def _generate_explainer(lesson: ExplainerLesson) -> dict:
+    steps_text = " ".join(f"Step {i+1}: {s}" for i, s in enumerate(lesson.steps))
+    script = (
+        f"{lesson.what_this_means}. {lesson.scenario}. "
+        f"Let's walk through the key steps. {steps_text}"
+    )
+
+    # TTS
+    tts = openai_client.audio.speech.create(
+        model="tts-1-hd", voice="nova", input=script,
+    )
+    mp3_bytes = tts.content
+
+    # Upload to Supabase Storage (bucket: explainers, public)
+    path = f"{lesson.lesson_id}.mp3"
+    try:
+        supabase_client.storage.from_("explainers").upload(
+            path, mp3_bytes, file_options={"content-type": "audio/mpeg", "upsert": "true"}
+        )
+    except Exception:
+        supabase_client.storage.from_("explainers").update(
+            path, mp3_bytes, file_options={"content-type": "audio/mpeg"}
+        )
+    audio_url = supabase_client.storage.from_("explainers").get_public_url(path)
+
+    # Whisper round-trip for word timestamps
+    af = io.BytesIO(mp3_bytes)
+    af.name = "audio.mp3"
+    transcript = openai_client.audio.transcriptions.create(
+        model="whisper-1", file=af,
+        response_format="verbose_json",
+        timestamp_granularities=["word"],
+    )
+    words = list(getattr(transcript, "words", []) or [])
+
+    # Map "Step N" markers → timestamps
+    step_timestamps = [{"step": -1, "t": 0.0}]  # intro
+    for idx in range(len(lesson.steps)):
+        marker = str(idx + 1)
+        for j, w in enumerate(words):
+            if w.word.strip().lower() == "step" and j + 1 < len(words):
+                nxt = words[j + 1].word.strip().rstrip(".:,")
+                if nxt == marker:
+                    step_timestamps.append({"step": idx, "t": float(w.start)})
+                    break
+
+    duration = getattr(transcript, "duration", None)
+    supabase_client.table("lesson_explainers").upsert({
+        "lesson_id": lesson.lesson_id,
+        "audio_url": audio_url,
+        "duration_seconds": duration,
+        "step_timestamps": step_timestamps,
+        "script": script,
+    }).execute()
+
+    return {
+        "lesson_id": lesson.lesson_id,
+        "audio_url": audio_url,
+        "steps_found": len([s for s in step_timestamps if s["step"] >= 0]),
+        "duration": duration,
+    }
+
+# ── Explainer public endpoint ─────────────────────────────────
+@app.get("/explainers/{lesson_id}")
+def get_explainer(lesson_id: str, user=Depends(verify_token)):
+    res = (supabase_client.table("lesson_explainers")
+           .select("audio_url, step_timestamps, duration_seconds")
+           .eq("lesson_id", lesson_id).execute())
+    if not res.data:
+        raise HTTPException(status_code=404, detail="No explainer")
+    return res.data[0]
+
+# ── Explainer admin endpoints ─────────────────────────────────
+@app.get("/admin/explainers")
+def list_explainers(user=Depends(verify_admin)):
+    res = (supabase_client.table("lesson_explainers")
+           .select("lesson_id, audio_url, duration_seconds, generated_at").execute())
+    return {"explainers": res.data}
+
+@app.post("/admin/explainers/generate")
+async def generate_explainer(lesson: ExplainerLesson, user=Depends(verify_admin)):
+    return await _generate_explainer(lesson)
+
+@app.delete("/admin/explainers/{lesson_id}")
+def delete_explainer(lesson_id: str, user=Depends(verify_admin)):
+    supabase_client.storage.from_("explainers").remove([f"{lesson_id}.mp3"])
+    supabase_client.table("lesson_explainers").delete().eq("lesson_id", lesson_id).execute()
+    return {"deleted": lesson_id}
+
+@app.post("/admin/explainers/setup")
+def setup_explainers(user=Depends(verify_admin)):
+    bucket_created = False
+    try:
+        supabase_client.storage.create_bucket("explainers", options={"public": True})
+        bucket_created = True
+    except Exception:
+        pass
+    sql = (
+        "CREATE TABLE IF NOT EXISTS lesson_explainers (\n"
+        "  lesson_id TEXT PRIMARY KEY,\n"
+        "  audio_url TEXT NOT NULL,\n"
+        "  duration_seconds FLOAT,\n"
+        "  step_timestamps JSONB,\n"
+        "  script TEXT,\n"
+        "  generated_at TIMESTAMPTZ DEFAULT NOW()\n"
+        ");"
+    )
+    return {"bucket_created": bucket_created, "sql": sql}

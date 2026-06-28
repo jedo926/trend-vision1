@@ -2,6 +2,59 @@
 
 ---
 
+## 2026-06-29 — Animated Visualizations + AI Voice Explainers
+
+**Prompt:** ok i need visualization on every scenario and the steps on every module make the visualization animated and pair it with a ai voice explainer create explainers with my openai api key once generated embed it in the site and add a play explainer it should start the voice explaining the animation and whats happening
+
+**What was done:**
+
+**Backend (main.py):**
+- Added `openai.OpenAI` client for raw TTS/Whisper calls (alongside existing LangChain client)
+- `POST /admin/explainers/generate` — builds script from `whatThisMeans + scenario + steps`, calls OpenAI TTS (`tts-1-hd`, voice `nova`), uploads MP3 to Supabase Storage bucket `explainers/{lesson_id}.mp3`, round-trips audio through Whisper (`whisper-1`, `timestamp_granularities=["word"]`) to extract "Step N" markers, upserts row in `lesson_explainers` table with `step_timestamps JSONB`
+- `GET /explainers/{lesson_id}` — public (auth-gated) endpoint returning `audio_url + step_timestamps + duration`
+- `GET /admin/explainers` — list all generated explainers
+- `DELETE /admin/explainers/{lesson_id}` — removes MP3 from Storage and row from table
+- `POST /admin/explainers/setup` — creates `explainers` Storage bucket (public), returns SQL DDL to paste into Supabase SQL editor
+
+**Frontend — js/explainer.js (new file):**
+- 3 animated scene types selected by module ID prefix:
+  - **flow** (intro, soc, identity, final, advanced): Pipeline nodes with active/completed/waiting states, pulsing ring animation
+  - **dashboard** (dashboards, getting-started, alerts-workbench, risk): Vision One console mockup with metric widgets, glow effects, progress bars
+  - **network** (endpoint, email, cloud, network, xdr): Topology with hub node + spokes, animated connection lines with moving packets
+- Sync engine: `audio.timeupdate` → compare `currentTime` against `step_timestamps` → `activateStep()` per scene type
+- Play/Pause/Replay controls, progress bar fill, step caption updates
+
+**Frontend — js/app.js:**
+- `renderLesson()` now creates `.explainer-stage` + `.play-explainer-btn` + `.explainer-progress-fill` after tab binding
+- Calls `window.V1Explainer.init(les.id, mod.id, steps, stageEl, playBtn, progressFill)` — silently no-ops if no explainer exists for the lesson
+
+**Frontend — css/style.css:**
+- ~300 lines of new CSS: `.explainer-wrap`, `.play-explainer-btn`, `.explainer-progress-*`, `.ex-scene`, `.ex-flow-*`, `.ex-node` states (active/completed/waiting), `.ex-dashboard` + `.ex-widget` states, `.ex-network` + connection animations (`ex-packet` keyframe), responsive grid, dark/light via semantic tokens
+
+**Frontend — index.html:**
+- Added `<script src="js/explainer.js"></script>` before `app.js`
+
+**Admin (admin.html):**
+- Added `<script src="js/data/modules.js"></script>` so admin has access to `window.V1_MODULES`
+- New "AI Voice Explainers" card with: progress counter (N/58), Refresh, Setup (shows DDL + calls `/admin/explainers/setup`), Generate All button
+- "Generate All" loops all 58 lessons sequentially with a live progress bar — one request per lesson (~10s each) avoids HTTP timeout
+- Per-lesson Regen + Delete buttons in the explainers table
+
+**Setup required (one-time, run in Supabase SQL Editor):**
+```sql
+CREATE TABLE IF NOT EXISTS lesson_explainers (
+  lesson_id TEXT PRIMARY KEY,
+  audio_url TEXT NOT NULL,
+  duration_seconds FLOAT,
+  step_timestamps JSONB,
+  script TEXT,
+  generated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+The Storage bucket `explainers` is created automatically when you click "Setup" in the admin panel.
+
+---
+
 ## 2026-06-28 — Docling Railway service deployed + wired to backend
 
 **Prompt:** do it for me with the mcp
