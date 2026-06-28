@@ -2,6 +2,27 @@
 
 ---
 
+## 2026-06-28 — Railway deploy, email verification off, full prod wiring
+
+**Prompt:** turn off email verification for auth and i added the railway mcp / i logged in now go implement everything and get it ready for prod
+
+**What was done:**
+- `supabase/config.toml` — Created and pushed to Supabase: `enable_confirmations = false`, `double_confirm_changes = false`, `site_url` set to `https://trendvision1.vercel.app`. Users can now sign up and log in instantly with no email confirmation step.
+- `main.py` — Fixed `slowapi` crash on startup: renamed `http_request: Request` parameter to `request: Request` (slowapi looks for the literal name `request` to apply rate limiting).
+- `index.html` — Set `window.CHAT_API_URL = "https://trend-vision1-api-production.up.railway.app"` (was empty string).
+- Railway — Created project `trend-vision1-api`, set `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` env vars, deployed backend. Live at: **https://trend-vision1-api-production.up.railway.app**
+- Vercel — Redeployed frontend with updated Railway URL. Live at: **https://trendvision1.vercel.app**
+- GitHub — All changes pushed to `origin/main`. Switched back to `dev` branch for continued development.
+
+**Pending (one manual step):**
+Run this SQL in the Supabase SQL editor (https://supabase.com/dashboard/project/zvuehvhnadkthjzucnpj/sql):
+```sql
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service role full access" ON documents USING (true) WITH CHECK (true);
+```
+
+---
+
 ## 2026-06-28 — Fix Vercel CSS missing
 
 **Prompt:** the css is gone the website is just raw text
