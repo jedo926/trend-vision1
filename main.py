@@ -1,5 +1,7 @@
 import os
-from fastapi import FastAPI, HTTPException, Request, Depends
+import tempfile
+from pathlib import Path
+from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +13,7 @@ from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.agents import create_agent
 from langchain.tools import tool
 from supabase.client import create_client
+from markitdown import MarkItDown
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
@@ -29,13 +32,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Supabase + vector store ───────────────────────────────────
+# ── Supabase + models ─────────────────────────────────────────
 supabase_client = create_client(
     os.environ["SUPABASE_URL"],
     os.environ["SUPABASE_SERVICE_ROLE_KEY"],
 )
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+md_converter = MarkItDown()
+
+ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "abdulmajeedtayyar92@gmail.com").split(",")}
 
 SYSTEM_PROMPT = (
     "You are an elite, supportive technical learning assistant for the Trend Micro Vision One platform. "
@@ -59,11 +65,27 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_sche
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
+def verify_admin(user=Depends(verify_token)):
+    if (user.email or "").lower() not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+# ── Helpers ───────────────────────────────────────────────────
+def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str]:
+    words = text.split()
+    chunks, i = [], 0
+    while i < len(words):
+        chunk = " ".join(words[i : i + chunk_size])
+        if chunk.strip():
+            chunks.append(chunk)
+        i += chunk_size - overlap
+    return chunks
+
 # ── Schema ────────────────────────────────────────────────────
 class QueryRequest(BaseModel):
     question: str
 
-# ── Endpoints ────────────────────────────────────────────────
+# ── Public endpoints ──────────────────────────────────────────
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -99,8 +121,7 @@ def ask_agent(
     result = agent.invoke({"messages": [{"role": "user", "content": body.question}]})
     answer = result["messages"][-1].content
 
-    sources = []
-    seen = set()
+    sources, seen = [], set()
     for row in retrieved_docs:
         meta = row.get("metadata") or {}
         title = meta.get("title", "Documentation Page")
@@ -110,3 +131,76 @@ def ask_agent(
             sources.append({"title": title, "url": url})
 
     return {"answer": answer, "sources": sources}
+
+# ── Admin endpoints ───────────────────────────────────────────
+@app.get("/admin/health")
+def admin_health(user=Depends(verify_admin)):
+    try:
+        res = supabase_client.table("documents").select("id", count="exact").limit(1).execute()
+        doc_count = res.count or 0
+        supabase_ok = True
+    except Exception:
+        doc_count = -1
+        supabase_ok = False
+    return {"backend": "ok", "supabase": supabase_ok, "document_count": doc_count}
+
+@app.get("/admin/users")
+def list_users(user=Depends(verify_admin)):
+    res = supabase_client.auth.admin.list_users()
+    users = [
+        {"id": u.id, "email": u.email, "created_at": str(u.created_at), "last_sign_in": str(u.last_sign_in_at)}
+        for u in res
+    ]
+    return {"users": users, "total": len(users)}
+
+@app.delete("/admin/users/{user_id}")
+def delete_user(user_id: str, admin=Depends(verify_admin)):
+    supabase_client.auth.admin.delete_user(user_id)
+    return {"deleted": user_id}
+
+@app.get("/admin/documents")
+def list_documents(user=Depends(verify_admin)):
+    res = supabase_client.table("documents").select("id, metadata").limit(200).execute()
+    return {"documents": res.data, "count": len(res.data)}
+
+@app.delete("/admin/documents/{doc_id}")
+def delete_document(doc_id: str, user=Depends(verify_admin)):
+    supabase_client.table("documents").delete().eq("id", doc_id).execute()
+    return {"deleted": doc_id}
+
+@app.delete("/admin/documents")
+def delete_all_documents(user=Depends(verify_admin)):
+    supabase_client.table("documents").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    return {"deleted": "all"}
+
+@app.post("/admin/ingest")
+async def ingest_document(file: UploadFile = File(...), user=Depends(verify_admin)):
+    suffix = Path(file.filename or "upload.pdf").suffix or ".pdf"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        result = md_converter.convert(tmp_path)
+        text = result.text_content or ""
+    finally:
+        os.unlink(tmp_path)
+
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="Could not extract text from file")
+
+    chunks = chunk_text(text)
+    if not chunks:
+        raise HTTPException(status_code=422, detail="No content chunks generated")
+
+    rows = []
+    for chunk in chunks:
+        vector = embeddings.embed_query(chunk)
+        rows.append({
+            "content": chunk,
+            "metadata": {"title": file.filename, "source": "admin_upload"},
+            "embedding": vector,
+        })
+
+    supabase_client.table("documents").insert(rows).execute()
+    return {"ingested_chunks": len(rows), "filename": file.filename}

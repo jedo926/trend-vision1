@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vision One — Admin</title>
+  <script>
+    window.CHAT_API_URL   = "https://trend-vision1-api-production.up.railway.app";
+    window.SUPABASE_URL   = "https://zvuehvhnadkthjzucnpj.supabase.co";
+    window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2dWVodmhuYWRrdGhqenVjbnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MzI3MTgsImV4cCI6MjA5ODIwODcxOH0.8yMALrJhQfZdvOcBOcL9ENCZ2huy3Q6WJBOpQ39Yc94";
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117; --s1: #161b22; --s2: #1c2128; --s3: #262c36;
+      --border: #30363d; --t1: #e6edf3; --t2: #8b949e; --t3: #6e7681;
+      --accent: #d6001c; --accent-dim: rgba(214,0,28,.15);
+      --green: #3fb950; --red: #f85149; --yellow: #e3b341;
+      --radius: 8px; --radius-lg: 12px;
+    }
+
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t1); min-height: 100vh; font-size: 14px; }
+
+    /* ── Auth wall ── */
+    #auth-wall {
+      display: none; position: fixed; inset: 0; background: var(--bg);
+      z-index: 100; align-items: center; justify-content: center;
+    }
+    #auth-wall.visible { display: flex; }
+    .auth-card {
+      background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 40px; width: 100%; max-width: 380px;
+    }
+    .auth-card h1 { font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
+    .auth-card p { color: var(--t2); font-size: 0.85rem; margin-bottom: 24px; }
+    .auth-field { margin-bottom: 14px; }
+    .auth-field label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--t2); margin-bottom: 5px; }
+    .auth-field input {
+      width: 100%; background: var(--s2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 9px 12px; color: var(--t1); font-family: inherit; font-size: 0.9rem;
+    }
+    .auth-field input:focus { outline: none; border-color: var(--accent); }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
+      border-radius: var(--radius); font-family: inherit; font-size: 0.85rem;
+      font-weight: 600; cursor: pointer; border: none; transition: opacity .15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--accent); color: #fff; width: 100%; justify-content: center; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--t1); }
+    .btn-danger  { background: var(--red); color: #fff; }
+    .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+    #auth-error { color: var(--red); font-size: 0.8rem; margin-top: 10px; min-height: 18px; }
+
+    /* ── Layout ── */
+    #admin-shell { display: none; }
+    #admin-shell.visible { display: block; }
+
+    .topbar {
+      background: var(--s1); border-bottom: 1px solid var(--border);
+      padding: 0 32px; height: 56px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .topbar-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1rem; }
+    .topbar-badge {
+      background: var(--accent-dim); color: var(--accent); font-size: 0.68rem;
+      font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .admin-email { font-size: 0.8rem; color: var(--t2); }
+
+    .main { max-width: 1080px; margin: 0 auto; padding: 32px 24px; display: flex; flex-direction: column; gap: 28px; }
+
+    /* ── Cards ── */
+    .card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .card-header {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-title { font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .card-body { padding: 20px; }
+
+    /* ── Health ── */
+    .health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+    .health-item {
+      background: var(--s2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .health-label { font-size: 0.72rem; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .05em; }
+    .health-value { font-size: 1.4rem; font-weight: 700; }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px;
+    }
+    .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot-red   { background: var(--red); }
+    .dot-grey  { background: var(--t3); }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    th { padding: 10px 14px; text-align: left; font-size: 0.72rem; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); }
+    td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--t1); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--s2); }
+    .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--t2); }
+    .empty-row td { color: var(--t3); text-align: center; padding: 32px; }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: var(--radius-lg); padding: 40px 24px;
+      text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: var(--accent-dim); }
+    .upload-zone p { color: var(--t2); font-size: 0.88rem; margin-top: 8px; }
+    .upload-zone strong { color: var(--t1); }
+    #file-input { display: none; }
+
+    .progress-bar-wrap { background: var(--s3); border-radius: 4px; height: 6px; margin-top: 14px; display: none; }
+    .progress-bar { height: 100%; background: var(--accent); border-radius: 4px; width: 0%; transition: width .3s; }
+    #ingest-status { font-size: 0.82rem; color: var(--t2); margin-top: 10px; min-height: 18px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .topbar { padding: 0 16px; }
+      .main { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Auth wall -->
+<div id="auth-wall" class="visible">
+  <div class="auth-card">
+    <h1>Admin Panel</h1>
+    <p>Sign in with your admin account to continue.</p>
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="you@example.com">
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input type="password" id="auth-password" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary" id="auth-submit-btn">Sign In</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<!-- Admin shell -->
+<div id="admin-shell">
+  <div class="topbar">
+    <div class="topbar-logo">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2L3 6v4c0 3.5 3 6.5 7 8 4-1.5 7-4.5 7-8V6L10 2z" stroke="#d6001c" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      Vision One
+      <span class="topbar-badge">Admin</span>
+    </div>
+    <div class="topbar-right">
+      <span class="admin-email" id="admin-email-display"></span>
+      <button class="btn btn-outline btn-sm" id="signout-btn">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- Health -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">System Health</span>
+        <button class="btn btn-outline btn-sm" id="refresh-health-btn">Refresh</button>
+      </div>
+      <div class="card-body">
+        <div class="health-grid" id="health-grid">
+          <div class="health-item"><div class="health-label">Backend</div><div class="health-value" id="h-backend">—</div></div>
+          <div class="health-item"><div class="health-label">Supabase</div><div class="health-value" id="h-supabase">—</div></div>
+          <div class="health-item"><div class="health-label">Documents</div><div class="health-value" id="h-docs">—</div></div>
+          <div class="health-item"><div class="health-label">Users</div><div class="health-value" id="h-users">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Document Ingestion -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Document Ingestion</span>
+        <button class="btn btn-danger btn-sm" id="clear-docs-btn">Clear All Docs</button>
+      </div>
+      <div class="card-body">
+        <div class="upload-zone" id="upload-zone">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M16 4v18M9 11l7-7 7 7" stroke="#8b949e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 24h22" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/></svg>
+          <p><strong>Click to upload</strong> or drag & drop a file here</p>
+          <p style="font-size:.78rem;margin-top:4px">PDF, Word (.docx), PowerPoint (.pptx), Excel, HTML, Markdown, plain text</p>
+          <input type="file" id="file-input" accept=".pdf,.docx,.pptx,.xlsx,.html,.htm,.md,.txt,.csv">
+        </div>
+        <div class="progress-bar-wrap" id="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+        <div id="ingest-status"></div>
+
+        <!-- Docs table -->
+        <div style="margin-top:24px;">
+          <div style="font-size:.78rem;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Ingested Documents</div>
+          <div class="table-wrap">
+            <table id="docs-table">
+              <thead><tr><th>Title / Source</th><th>ID</th><th></th></tr></thead>
+              <tbody id="docs-tbody"><tr class="empty-row"><td colspan="3">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Users</span>
+        <button class="btn btn-outline btn-sm" id="refresh-users-btn">Refresh</button>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="table-wrap">
+          <table id="users-table">
+            <thead><tr><th>Email</th><th>Created</th><th>Last Sign In</th><th>ID</th><th></th></tr></thead>
+            <tbody id="users-tbody"><tr class="empty-row"><td colspan="5">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  const API = window.CHAT_API_URL.replace(/\/$/, "");
+  const { createClient } = window.supabase;
+  const sb = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+  let token = null;
+
+  // ── Auth ──
+  sb.auth.onAuthStateChange(async (event, session) => {
+    token = session ? session.access_token : null;
+    if (session) {
+      document.getElementById("auth-wall").classList.remove("visible");
+      document.getElementById("admin-shell").classList.add("visible");
+      document.getElementById("admin-email-display").textContent = session.user.email;
+      loadAll();
+    } else {
+      document.getElementById("auth-wall").classList.add("visible");
+      document.getElementById("admin-shell").classList.remove("visible");
+    }
+  });
+
+  document.getElementById("auth-submit-btn").addEventListener("click", async () => {
+    const email = document.getElementById("auth-email").value.trim();
+    const pass  = document.getElementById("auth-password").value;
+    const err   = document.getElementById("auth-error");
+    err.textContent = "";
+    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) err.textContent = error.message;
+  });
+
+  document.getElementById("signout-btn").addEventListener("click", () => sb.auth.signOut());
+
+  // ── API helpers ──
+  async function api(path, opts = {}) {
+    const res = await fetch(API + path, {
+      ...opts,
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json", ...(opts.headers || {}) },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || res.statusText);
+    }
+    return res.json();
+  }
+
+  // ── Load everything ──
+  async function loadAll() {
+    loadHealth();
+    loadDocs();
+    loadUsers();
+  }
+
+  // ── Health ──
+  async function loadHealth() {
+    const dot = (ok) => `<span class="status-dot ${ok ? "dot-green" : "dot-red"}"></span>${ok ? "Online" : "Offline"}`;
+    try {
+      const data = await api("/admin/health");
+      document.getElementById("h-backend").innerHTML = dot(true);
+      document.getElementById("h-supabase").innerHTML = dot(data.supabase);
+      document.getElementById("h-docs").textContent = data.document_count >= 0 ? data.document_count : "—";
+    } catch {
+      document.getElementById("h-backend").innerHTML = `<span class="status-dot dot-red"></span>Offline`;
+    }
+  }
+  document.getElementById("refresh-health-btn").addEventListener("click", loadHealth);
+
+  // ── Users ──
+  async function loadUsers() {
+    const tbody = document.getElementById("users-tbody");
+    try {
+      const data = await api("/admin/users");
+      document.getElementById("h-users").textContent = data.total;
+      if (!data.users.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No users found</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.users.map(u => `
+        <tr>
+          <td>${esc(u.email)}</td>
+          <td class="mono">${fmtDate(u.created_at)}</td>
+          <td class="mono">${fmtDate(u.last_sign_in)}</td>
+          <td class="mono">${u.id.slice(0,8)}…</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${esc(u.email)}')">Delete</button></td>
+        </tr>`).join("");
+    } catch (e) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Error: ${esc(e.message)}</td></tr>`;
+    }
+  }
+  document.getElementById("refresh-users-btn").addEventListener("click", loadUsers);
+
+  window.deleteUser = async (id, email) => {
+    if (!confirm(`Delete user ${email}? This is permanent.`)) return;
+    try {
+      await api(`/admin/users/${id}`, { method: "DELETE" });
+      loadUsers();
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
+  // ── Documents ──
+  async function loadDocs() {
+    const tbody = document.getElementById("docs-tbody");
+    try {
+      const data = await api("/admin/documents");
+      if (!data.documents.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="3">No documents ingested yet</td></tr>`;
+        return;
+      }
+      const seen = new Set();
+      const rows = [];
+      data.documents.forEach(doc => {
+        const title = (doc.metadata?.title || doc.metadata?.source || "Unknown");
+        rows.push(`<tr>
+          <td>${esc(title)}</td>
+          <td class="mono">${doc.id.slice(0,8)}…</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteDoc('${doc.id}')">Delete</button></td>
+        </tr>`);
+      });
+      tbody.innerHTML = rows.join("");
+      document.getElementById("h-docs").textContent = data.count;
+    } catch (e) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="3">Error: ${esc(e.message)}</td></tr>`;
+    }
+  }
+
+  window.deleteDoc = async (id) => {
+    if (!confirm("Delete this document chunk?")) return;
+    try {
+      await api(`/admin/documents/${id}`, { method: "DELETE" });
+      loadDocs();
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
+  document.getElementById("clear-docs-btn").addEventListener("click", async () => {
+    if (!confirm("Delete ALL documents from the RAG database? This cannot be undone.")) return;
+    try {
+      await api("/admin/documents", { method: "DELETE" });
+      loadDocs();
+      loadHealth();
+    } catch (e) { alert("Error: " + e.message); }
+  });
+
+  // ── File upload / ingest ──
+  const zone   = document.getElementById("upload-zone");
+  const input  = document.getElementById("file-input");
+  const status = document.getElementById("ingest-status");
+  const progWrap = document.getElementById("progress-wrap");
+  const progBar  = document.getElementById("progress-bar");
+
+  zone.addEventListener("click", () => input.click());
+  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("dragover"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+  zone.addEventListener("drop", e => { e.preventDefault(); zone.classList.remove("dragover"); if (e.dataTransfer.files[0]) ingestFile(e.dataTransfer.files[0]); });
+  input.addEventListener("change", () => { if (input.files[0]) ingestFile(input.files[0]); });
+
+  async function ingestFile(file) {
+    status.textContent = `Uploading ${file.name}…`;
+    progWrap.style.display = "block";
+    progBar.style.width = "20%";
+
+    const form = new FormData();
+    form.append("file", file);
+
+    try {
+      progBar.style.width = "60%";
+      const res = await fetch(API + "/admin/ingest", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: form,
+      });
+      progBar.style.width = "100%";
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || res.statusText);
+      }
+      const data = await res.json();
+      status.textContent = `✓ Ingested ${data.ingested_chunks} chunks from "${data.filename}"`;
+      status.style.color = "var(--green)";
+      loadDocs();
+      loadHealth();
+    } catch (e) {
+      status.textContent = `Error: ${e.message}`;
+      status.style.color = "var(--red)";
+    } finally {
+      input.value = "";
+      setTimeout(() => { progWrap.style.display = "none"; progBar.style.width = "0%"; }, 2000);
+    }
+  }
+
+  // ── Utils ──
+  function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function fmtDate(s) {
+    if (!s || s === "None" || s === "null") return "—";
+    try { return new Date(s).toLocaleDateString(); } catch { return s; }
+  }
+})();
+</script>
+</body>
+</html>
