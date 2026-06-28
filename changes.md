@@ -2,6 +2,17 @@
 
 ---
 
+## 2026-06-29 — Fix: explainer spacing
+
+**Prompt:** we need to fix the spacing for the animation and the play button they are packed too close together so just keep good spacing so it looks nicer
+
+**What was done:**
+- `css/style.css` — Increased `.explainer-wrap` bottom margin, removed the tight `gap` between children
+- Progress bar now hugs the bottom of the stage (rounded bottom corners, no gap) creating a natural visual unit
+- Stage corners flatten at the bottom to merge with the progress bar; 1rem space before the play button
+
+---
+
 ## 2026-06-29 — Fix: accurate animation sync from script text positions
 
 **Prompt:** the animation isn't accurate at all for some all the audios have been generated fix the animations make them work with the audio

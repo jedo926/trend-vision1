@@ -2293,10 +2293,10 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 ═══════════════════════════════════════════════════════════════ */
 
 .explainer-wrap {
-  margin: 0 0 1rem;
+  margin: 0 0 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0;
 }
 
 /* Play button */
@@ -2325,10 +2325,11 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 
 /* Audio progress bar */
 .explainer-progress-track {
-  height: 2px;
+  height: 3px;
   background: var(--s3);
-  border-radius: 2px;
+  border-radius: 0 0 10px 10px;
   overflow: hidden;
+  margin-bottom: 1rem;
 }
 .explainer-progress-fill {
   height: 100%;
@@ -2340,9 +2341,10 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 
 /* Stage outer */
 .explainer-stage {
-  border-radius: 10px;
+  border-radius: 10px 10px 0 0;
   overflow: hidden;
   border: 1px solid var(--s3);
+  border-bottom: none;
   min-height: 220px;
 }
 
