@@ -192,14 +192,12 @@ async def ingest_document(file: UploadFile = File(...), user=Depends(verify_admi
         try:
             async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.post(
-                    f"{DOCLING_URL}/v1alpha/convert/file",
+                    f"{DOCLING_URL}/v1/convert/file",
                     files={"files": (filename, file_bytes, "application/octet-stream")},
                 )
                 resp.raise_for_status()
                 data = resp.json()
-                # docling-serve returns list of documents
-                doc = data.get("documents", [{}])[0]
-                text = doc.get("md_content") or doc.get("text", "")
+                text = (data.get("document") or {}).get("md_content") or ""
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Docling error: {e}")
     else:
