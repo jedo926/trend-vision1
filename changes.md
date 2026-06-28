@@ -2,6 +2,25 @@
 
 ---
 
+## 2026-06-28 — Admin panel + document ingestion (markitdown)
+
+**Prompt:** i need an admin panel to check on the health and manage users and stuff also i want you to go into railway and integrate docling and markitdown so i can add pdfs and actually update the rag system with new info whenever i need
+
+**What was done:**
+- `main.py` — Added admin endpoints (all protected by `ADMIN_EMAILS` env var):
+  - `GET /admin/health` — backend + Supabase status + doc count
+  - `GET /admin/users` / `DELETE /admin/users/{id}` — list and delete users via Supabase admin API
+  - `GET /admin/documents` / `DELETE /admin/documents/{id}` / `DELETE /admin/documents` — list, delete single, or wipe all docs
+  - `POST /admin/ingest` — accepts PDF/Word/PPT/Excel/HTML/Markdown upload, converts via `markitdown`, chunks (800 words, 100 overlap), embeds via `text-embedding-3-small`, stores in Supabase `documents` table
+- `requirements.txt` — Added `markitdown[all]`, `python-multipart`
+- `admin.html` — Standalone admin dashboard at `/admin` (same design system). Sections: System Health cards, drag-and-drop file ingestion with progress bar, ingested documents table with delete, users table with delete. Auth-gated via Supabase sign-in (only admin emails get past the backend 403).
+- Railway — `ADMIN_EMAILS` env var set to `abdulmajeedtayyar92@gmail.com`. Redeployed with new dependencies.
+- Vercel — Redeployed. Admin panel at **https://trendvision1.vercel.app/admin**
+
+**Note:** `docling` requires PyTorch (~2GB) which breaks Railway's build budget. `markitdown` handles the same file types (PDF, Word, PPT, Excel, HTML, MD, CSV) and is lightweight — it's the right tool for this use case.
+
+---
+
 ## 2026-06-28 — Bigger chatbot + lesson recommendations
 
 **Prompt:** make the chat bot box much bigger and if someone asks something and a guide or a lesson is available at the end make the chat bot tell them they can also check out this source
