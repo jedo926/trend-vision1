@@ -1873,71 +1873,73 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 @media (max-width: 768px) {
   :root { --sidebar-w: 0px; }
 
-  .sidebar {
-    transform: translateX(-100%);
-    width: 280px;
-    z-index: 500;
-  }
-  .sidebar.mobile-open {
-    transform: translateX(0);
-    box-shadow: var(--sh-lg);
-  }
+  .sidebar { transform: translateX(-100%); width: 280px; z-index: 500; }
+  .sidebar.mobile-open { transform: translateX(0); box-shadow: var(--sh-lg); }
 
-  .content-area { padding: 12px; }
-  .app-header { padding: 0 10px; }
-
+  /* Header — hide search & mode, keep only essential controls */
+  .app-header { padding: 0 10px; gap: 8px; }
+  .header-search-region { display: none; }
+  .header-start { min-width: unset; gap: 6px; }
+  .header-end { min-width: unset; gap: 6px; }
   .search-shortcut { display: none; }
   .mode-selector { display: none; }
   .logo-wordmark { display: none; }
 
-  .header-end { min-width: unset; }
-  .header-start { min-width: unset; }
+  /* Content */
+  .content-area { padding: 12px; }
 
+  /* Step pipeline */
   .step-pipeline { display: flex; flex-direction: column; }
-  .step-node {
-    border-radius: var(--radius) !important;
-    border-right: 1px solid var(--border-sub) !important;
-  }
+  .step-node { border-radius: var(--radius) !important; border-right: 1px solid var(--border-sub) !important; }
   .step-node::after { display: none; }
 
-  /* Lesson header */
+  /* Lesson header & body */
   .lesson-header { padding: 14px 14px 0; }
   .lesson-title { font-size: 1.1rem; }
-  .lesson-title-row { gap: 10px; margin-bottom: 12px; }
+  .lesson-title-row { gap: 8px; margin-bottom: 12px; }
   .lesson-body { padding: 14px; }
 
-  /* Tabs — horizontally scrollable, no wrapping */
+  /* Tabs — horizontally scrollable */
   .lesson-tab-list {
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow-x: auto; overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    flex-wrap: nowrap;
-    gap: 0;
+    scrollbar-width: none; flex-wrap: nowrap; gap: 0;
   }
   .lesson-tab-list::-webkit-scrollbar { display: none; }
   .lesson-tab-btn { white-space: nowrap; flex-shrink: 0; padding: 10px 14px; font-size: 0.78rem; }
 
-  /* Explainer stage */
+  /* Explainer wrap & stage */
   .explainer-wrap { margin: 1rem 0 1.25rem; }
-  .explainer-stage { min-height: 170px; }
-  .ex-scene { min-height: 170px; }
+  .explainer-stage { min-height: 175px; }
+  .ex-scene { min-height: 175px; padding: 0.85rem 0.85rem 0.7rem; }
+
+  /* Flow nodes — compact for narrow screens */
+  .ex-node { min-width: 72px; padding: 0.55rem 0.6rem; }
+  .ex-node-icon { width: 18px; height: 18px; }
+  .ex-node-num { width: 16px; height: 16px; font-size: 0.58rem; }
+  .ex-node-label { font-size: 0.62rem; max-width: 64px; }
+  .ex-conn { min-width: 14px; }
+
+  /* Dashboard — tighter grid */
+  .ex-dash-grid { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 0.35rem; }
+  .ex-widget { padding: 0.55rem 0.6rem; }
+  .ex-widget-val { font-size: 1.2rem; }
 
   /* Step nav */
   .ex-step-nav { padding: 8px 0 2px; gap: 8px; }
-  .ex-nav-label { font-size: 0.73rem; min-width: 70px; }
+  .ex-nav-label { font-size: 0.73rem; min-width: 68px; }
 
-  /* Play button — full width on mobile */
+  /* Play button full-width */
   .play-explainer-btn { width: 100%; justify-content: center; }
 
-  /* AI nudge — shift left so it doesn't overlap FAB */
-  .ai-nudge { right: 12px; width: calc(100vw - 80px); max-width: 240px; }
+  /* AI nudge — avoid overlapping FAB */
+  .ai-nudge { right: 12px; width: calc(100vw - 80px); max-width: 230px; }
 
-  /* Chat panel full-width on mobile */
-  .chat-panel { width: 100vw; right: 0; border-radius: 16px 16px 0 0; bottom: 0; }
+  /* Chat panel — full-width bottom sheet */
+  .chat-panel { width: 100vw; right: 0; border-radius: 16px 16px 0 0; }
   .chat-panel.open { bottom: 0; }
 
-  /* Welcome screen */
+  /* Welcome */
   .welcome-heading { font-size: 1.6rem; }
   .modules-grid { gap: 10px; }
 }
@@ -2217,12 +2219,25 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 @media (max-width: 480px) {
   .content-area { padding: 8px; }
   .lesson-header { padding: 12px 12px 0; border-radius: 10px; }
+  .lesson-title { font-size: 0.98rem; }
+  .lesson-title-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .lesson-header-actions { width: 100%; justify-content: space-between; }
   .lesson-body { padding: 12px; }
-  .lesson-title { font-size: 1rem; }
-  .explainer-stage { min-height: 150px; }
-  .ex-scene { min-height: 150px; }
   .lesson-time-tag { display: none; }
-  .lesson-header-actions .icon-btn { display: none; } /* hide mark-done on tiny screens */
+
+  /* Further compact scene on tiny phones */
+  .ex-scene { min-height: 152px; padding: 0.6rem 0.6rem 0.5rem; }
+  .explainer-stage { min-height: 152px; }
+  .ex-node { min-width: 60px; padding: 0.4rem 0.45rem; }
+  .ex-node-icon { width: 15px; height: 15px; }
+  .ex-node-num { width: 14px; height: 14px; font-size: 0.52rem; }
+  .ex-node-label { font-size: 0.56rem; max-width: 56px; }
+  .ex-conn { min-width: 8px; }
+  .ex-dash-grid { grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 0.28rem; }
+  .ex-widget { padding: 0.4rem 0.45rem; }
+  .ex-widget-val { font-size: 1rem; margin-bottom: 0.2rem; }
+  .ex-spark { height: 18px; margin-bottom: 0.2rem; }
+  .ex-dash-top { padding: 0.28rem 0.5rem; font-size: 0.65rem; }
 }
 
 @media (max-width: 540px) {
