@@ -322,7 +322,23 @@ window.V1Explainer = (function () {
   }
 
   function _wireAudio(data, sceneType, stageEl, playBtn, progressEl, steps) {
-    const timestamps = (data.step_timestamps || []).sort((a, b) => a.t - b.t);
+    const raw = (data.step_timestamps || []).sort((a, b) => a.t - b.t);
+
+    // If Whisper didn't detect all "Step N" markers, fill in evenly-spaced fallbacks
+    const dur = data.duration_seconds || 30;
+    const detected = new Set(raw.filter(ts => ts.step >= 0).map(ts => ts.step));
+    const timestamps = [...raw];
+    if (detected.size < steps.length) {
+      const introEnd = dur * 0.18;  // first 18% = whatThisMeans + scenario
+      const stepSpan = (dur - introEnd) / steps.length;
+      steps.forEach((_, i) => {
+        if (!detected.has(i)) {
+          timestamps.push({ step: i, t: introEnd + i * stepSpan });
+        }
+      });
+      timestamps.sort((a, b) => a.t - b.t);
+    }
+
     const audio = new Audio(data.audio_url);
     let lastStep = -2;
     let playing = false;

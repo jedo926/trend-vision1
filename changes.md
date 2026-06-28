@@ -2,6 +2,17 @@
 
 ---
 
+## 2026-06-29 — Fix: animation sync + /explainers 404
+
+**Prompt:** some animations just aren't playing until the audio ends then they load / /explainers 404
+
+**What was done:**
+- `js/explainer.js` — Added evenly-spaced fallback timestamps: if Whisper didn't detect all "Step N" markers in the audio, the client auto-generates timestamps that divide the remaining duration equally across steps (first 18% = intro, rest split by step count). This ensures the scene always advances smoothly during playback regardless of Whisper detection quality.
+- `main.py` — `GET /explainers` endpoint was returning 404 because Railway was still serving the previous build. Redeployed Railway properly.
+- Redeployed both Railway and Vercel.
+
+---
+
 ## 2026-06-29 — Explainer v2: placement, richer animations, instant button, quiz-tab hidden
 
 **Prompt:** the play explainer button shows up way too late and the animations are too simple i wanna see more movement and also i don't know about the placement it feels a bit too crowded also why is it on every page it should only be on the first and second page not the quiz
