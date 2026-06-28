@@ -2,6 +2,16 @@
 
 ---
 
+## 2026-06-28 — Fix RAG search crashing on specific questions
+
+**Prompt:** the agent cant reach the backend - how do i add policies to one department only → Couldn't reach the assistant
+
+**What was done:**
+- `main.py` — `SupabaseVectorStore` was calling `match_documents(query_embedding)` but the Supabase function requires `(match_count, match_threshold, query_embedding)`, causing a `PGRST202` error. Replaced the LangChain retriever entirely with a direct `supabase_client.rpc("match_documents", {...}).execute()` call that passes all three params correctly. Source extraction updated to read from raw dicts instead of LangChain Document objects.
+- Redeployed to Railway.
+
+---
+
 ## 2026-06-28 — Fix chatbot "couldn't reach assistant" error
 
 **Prompt:** i tested the agent in the vercel app and got this when i asked a question: Couldn't reach the assistant.
