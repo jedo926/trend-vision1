@@ -297,7 +297,21 @@
         return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
       }
 
-      function renderAnswer(text, sources) {
+      function findRelatedLessons(question) {
+        if (!window.V1_MODULES) return [];
+        const words = question.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        const matches = [];
+        for (const mod of window.V1_MODULES) {
+          for (const les of (mod.lessons || [])) {
+            const t = les.title.toLowerCase();
+            if (words.some(w => t.includes(w))) matches.push(les);
+            if (matches.length >= 3) return matches;
+          }
+        }
+        return matches;
+      }
+
+      function renderAnswer(text, sources, question) {
         const paras = text.split(/\n{2,}/).map(p => `<p>${escapeHtml(p.trim())}</p>`).join("");
         let html = paras;
         if (sources && sources.length) {
@@ -305,6 +319,13 @@
             `<a class="chat-source-link" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a>`
           ).join("");
           html += `<div class="chat-sources"><span class="chat-sources-label">Sources</span>${links}</div>`;
+        }
+        const lessons = findRelatedLessons(question);
+        if (lessons.length) {
+          const btns = lessons.map(l =>
+            `<button class="chat-lesson-link" data-lesson="${escapeHtml(l.id)}">${escapeHtml(l.title)}</button>`
+          ).join("");
+          html += `<div class="chat-lessons"><span class="chat-lessons-label">Related lessons in this course</span>${btns}</div>`;
         }
         return html;
       }
@@ -330,7 +351,13 @@
           if (!res.ok) throw new Error(res.status);
           const data = await res.json();
           typing.remove();
-          addMessage("assistant", renderAnswer(data.answer, data.sources));
+          const msgEl = addMessage("assistant", renderAnswer(data.answer, data.sources, q));
+          msgEl.querySelectorAll(".chat-lesson-link").forEach(btn => {
+            btn.addEventListener("click", () => {
+              window.V1App?.navigateToLesson(btn.dataset.lesson);
+              setOpen(false);
+            });
+          });
         } catch (err) {
           typing.remove();
           addMessage("assistant", `<p>Couldn't reach the assistant. Make sure the backend is running and the URL is set correctly.</p>`);
