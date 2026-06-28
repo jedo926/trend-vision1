@@ -2,6 +2,16 @@
 
 ---
 
+## 2026-06-28 — Fix chatbot "couldn't reach assistant" error
+
+**Prompt:** i tested the agent in the vercel app and got this when i asked a question: Couldn't reach the assistant.
+
+**What was done:**
+- `index.html` — `CHAT_API_URL` was set to the bare Railway root URL (no `/query`). The JS was using it as-is with no suffix, so every request hit the wrong path. Fixed the URL construction: `(window.CHAT_API_URL || "http://localhost:8000").replace(/\/$/, "") + "/query"` so `/query` is always appended correctly regardless of whether CHAT_API_URL has a trailing slash.
+- Redeployed to Vercel — https://trendvision1.vercel.app
+
+---
+
 ## 2026-06-28 — Railway deploy, email verification off, full prod wiring
 
 **Prompt:** turn off email verification for auth and i added the railway mcp / i logged in now go implement everything and get it ready for prod
