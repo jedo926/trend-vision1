@@ -232,6 +232,33 @@
     <svg class="chat-fab-close" width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 3L15 15M15 3L3 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
 
+  <!-- AI nudge tooltip — shown once on first visit -->
+  <div id="ai-nudge" class="ai-nudge" role="status" aria-live="polite">
+    <button class="ai-nudge-dismiss" id="ai-nudge-dismiss" aria-label="Dismiss">✕</button>
+    <strong>Ask the AI anything</strong>
+    <p>Got a question about Vision One? The AI assistant knows every lesson — tap to chat.</p>
+    <div class="ai-nudge-arrow"></div>
+  </div>
+
+  <script>
+    (function() {
+      if (localStorage.getItem("v1_ai_nudge_seen")) return;
+      // Wait until after login renders
+      const show = () => {
+        const n = document.getElementById("ai-nudge");
+        if (n) { n.classList.add("ai-nudge-visible"); }
+      };
+      setTimeout(show, 1800);
+      const dismiss = () => {
+        const n = document.getElementById("ai-nudge");
+        if (n) n.classList.remove("ai-nudge-visible");
+        localStorage.setItem("v1_ai_nudge_seen", "1");
+      };
+      document.getElementById("ai-nudge-dismiss").addEventListener("click", dismiss);
+      document.getElementById("chat-fab").addEventListener("click", dismiss, { once: true });
+    })();
+  </script>
+
   <script src="js/auth.js"></script>
   <script src="js/data/modules.js"></script>
   <script src="js/storage.js"></script>

@@ -2,6 +2,16 @@
 
 ---
 
+## 2026-06-29 — AI nudge tooltip on first visit
+
+**Prompt:** when someone opens the site add a notification that points on the ai tab and prompts the user to ask ai about anything
+
+**What was done:**
+- `index.html` — Added `#ai-nudge` callout div above `#chat-fab` with title, body text, and a dismiss ✕ button. Inline script shows it 1.8s after load (first visit only, uses `localStorage`). Dismissed on ✕ click or when user opens the chat.
+- `css/style.css` — Styled the nudge: fixed position above the FAB, accent-colored border, animated in with opacity + translateY, downward arrow pointing at the button.
+
+---
+
 ## 2026-06-29 — Fix: explainer spacing
 
 **Prompt:** we need to fix the spacing for the animation and the play button they are packed too close together so just keep good spacing so it looks nicer

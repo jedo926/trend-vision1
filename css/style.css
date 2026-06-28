@@ -1945,6 +1945,82 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 .chat-fab.open .chat-fab-icon { display: none; }
 .chat-fab.open .chat-fab-close { display: block; }
 
+/* AI nudge tooltip */
+.ai-nudge {
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  width: 220px;
+  background: var(--bg);
+  border: 1.5px solid var(--accent);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  z-index: 9998;
+  opacity: 0;
+  transform: translateY(10px) scale(0.97);
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.ai-nudge.ai-nudge-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.ai-nudge strong {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 5px;
+}
+.ai-nudge p {
+  font-size: 0.76rem;
+  color: var(--t2);
+  line-height: 1.45;
+  margin: 0;
+}
+.ai-nudge-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  background: none;
+  border: none;
+  font-size: 0.7rem;
+  color: var(--t3);
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+}
+.ai-nudge-dismiss:hover { color: var(--t1); }
+/* Arrow pointing down toward FAB */
+.ai-nudge-arrow {
+  position: absolute;
+  bottom: -8px;
+  right: 28px;
+  width: 14px;
+  height: 8px;
+  overflow: visible;
+}
+.ai-nudge-arrow::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 8px solid var(--accent);
+}
+.ai-nudge-arrow::after {
+  content: "";
+  position: absolute;
+  bottom: 1.5px;
+  left: 1.5px;
+  border-left: 5.5px solid transparent;
+  border-right: 5.5px solid transparent;
+  border-top: 6.5px solid var(--bg);
+}
+
 .chat-panel {
   position: fixed;
   bottom: 88px;
