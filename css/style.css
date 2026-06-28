@@ -2424,6 +2424,52 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
   min-height: 220px;
 }
 
+/* Step navigator — shown after audio ends */
+.ex-step-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 0 4px;
+}
+.ex-nav-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--s2);
+  border: 1px solid var(--s3);
+  border-radius: 7px;
+  color: var(--t1);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ex-nav-btn:hover:not([disabled]) { background: var(--s3); border-color: var(--accent); }
+.ex-nav-btn[disabled] { opacity: 0.3; cursor: not-allowed; }
+.ex-nav-label {
+  font-size: 0.78rem;
+  color: var(--t2);
+  min-width: 80px;
+  text-align: center;
+}
+.ex-nav-label strong { color: var(--t1); font-weight: 700; }
+.ex-nav-of { color: var(--t3); }
+
+/* Interactive node hover states */
+.ex-interactive .ex-node,
+.ex-interactive .ex-widget,
+.ex-interactive .ex-conn2 { cursor: pointer; }
+
+.ex-interactive .ex-node { transition: transform 0.15s; }
+.ex-interactive .ex-node:hover { transform: scale(1.06); }
+
+.ex-interactive .ex-widget { transition: box-shadow 0.15s; }
+.ex-interactive .ex-widget:hover { box-shadow: 0 0 0 2px var(--accent); }
+
+.ex-interactive .ex-conn2-line { transition: opacity 0.15s; }
+.ex-interactive .ex-conn2:hover .ex-conn2-line { opacity: 1; }
+
 /* ════════════════════════════════════════════════════════════
    SCENE BASE
 ════════════════════════════════════════════════════════════ */

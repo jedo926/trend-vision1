@@ -369,40 +369,92 @@ window.V1Explainer = (function () {
     let lastStep = -2;
     let playing = false;
 
+    // Interactive state (shared across ended events)
+    let selStep = steps.length - 1;
+    let navEl = null;
+    let interactive = false;
+
+    // Selector for step-indexed elements per scene type
+    const NODE_SEL = sceneType === "dashboard" ? ".ex-widget[data-step]"
+                   : sceneType === "network"   ? ".ex-conn2[data-step]"
+                   :                             ".ex-node[data-step]";
+
+    function renderNav() {
+      if (!navEl) return;
+      navEl.innerHTML = `
+        <button class="ex-nav-btn ex-nav-prev"${selStep <= 0 ? " disabled" : ""}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3L5.5 7 9 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="ex-nav-label">Step <strong>${selStep + 1}</strong><span class="ex-nav-of"> of ${steps.length}</span></span>
+        <button class="ex-nav-btn ex-nav-next"${selStep >= steps.length - 1 ? " disabled" : ""}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l3.5 4L5 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>`;
+      navEl.querySelector(".ex-nav-prev").onclick = () => {
+        if (selStep > 0) { selStep--; activateStep(sceneType, stageEl, selStep, steps); renderNav(); }
+      };
+      navEl.querySelector(".ex-nav-next").onclick = () => {
+        if (selStep < steps.length - 1) { selStep++; activateStep(sceneType, stageEl, selStep, steps); renderNav(); }
+      };
+    }
+
     audio.addEventListener("timeupdate", () => {
       const t = audio.currentTime;
       let cur = -1;
       for (const ts of timestamps) { if (ts.t <= t) cur = ts.step; }
       if (cur !== lastStep) { lastStep = cur; activateStep(sceneType, stageEl, cur, steps); }
       if (progressEl) {
-        const dur = audio.duration || data.duration_seconds || 1;
-        progressEl.style.width = `${(t / dur) * 100}%`;
+        const d = audio.duration || data.duration_seconds || 1;
+        progressEl.style.width = `${(t / d) * 100}%`;
       }
     });
 
     audio.addEventListener("ended", () => {
       playing = false;
-      playBtn.innerHTML = IC.replay + " Replay";
-      playBtn.disabled = false;
       if (progressEl) progressEl.style.width = "100%";
-      activateStep(sceneType, stageEl, steps.length - 1, steps);
+      selStep = steps.length - 1;
+      activateStep(sceneType, stageEl, selStep, steps);
+      renderNav(); // update counter after replay too
+
+      if (interactive) return; // already wired on first play
+      interactive = true;
+
+      // Enable click-to-select on nodes
+      stageEl.classList.add("ex-interactive");
+      stageEl.querySelectorAll(NODE_SEL).forEach(nd => {
+        nd.addEventListener("click", () => {
+          selStep = parseInt(nd.dataset.step);
+          activateStep(sceneType, stageEl, selStep, steps);
+          renderNav();
+        });
+      });
+
+      // Insert nav between progress bar and play button
+      navEl = document.createElement("div");
+      navEl.className = "ex-step-nav";
+      fresh.parentNode?.insertBefore(navEl, fresh);
+      renderNav();
     });
+
     audio.addEventListener("error", () => {
-      playing = false; playBtn.disabled = false;
-      playBtn.innerHTML = IC.play + " Play Explainer";
+      playing = false; fresh.disabled = false;
+      fresh.innerHTML = IC.play + " Play Explainer";
     });
 
     // Make sure button is visible and wired
     playBtn.style.display = "flex";
     playBtn.innerHTML = IC.play + " Play Explainer";
-    // Remove any previous listener by replacing the element
     const fresh = playBtn.cloneNode(true);
     playBtn.parentNode?.replaceChild(fresh, playBtn);
     fresh.innerHTML = IC.play + " Play Explainer";
     fresh.style.display = "flex";
     fresh.addEventListener("click", () => {
       if (!playing) {
-        if (audio.ended) { audio.currentTime = 0; lastStep = -2; activateStep(sceneType, stageEl, -1, steps); }
+        if (audio.ended) {
+          audio.currentTime = 0; lastStep = -2;
+          activateStep(sceneType, stageEl, -1, steps);
+          stageEl.classList.remove("ex-interactive"); // hide interactivity during replay
+          if (navEl) { navEl.remove(); navEl = null; interactive = false; }
+        }
         audio.play();
         playing = true;
         fresh.innerHTML = IC.pause + " Pause";

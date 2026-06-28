@@ -2,6 +2,16 @@
 
 ---
 
+## 2026-06-29 — Interactive node navigation after animation
+
+**Prompt:** after the animation is done let the user scroll through the nodes select each of them
+
+**What was done:**
+- `js/explainer.js` — After audio ends: (1) adds `ex-interactive` class to stage; (2) wires click handlers on `.ex-node`, `.ex-widget`, `.ex-conn2` elements so clicking any node selects it via `activateStep`; (3) inserts a `← Step N of M →` nav bar between progress and play button with prev/next arrow buttons. Replaying clears interactivity and re-adds it on next end.
+- `css/style.css` — `.ex-step-nav` + `.ex-nav-btn` styles; `.ex-interactive` hover states (scale on flow nodes, ring highlight on widgets, line brighten on network).
+
+---
+
 ## 2026-06-29 — AI nudge tooltip on first visit
 
 **Prompt:** when someone opens the site add a notification that points on the ai tab and prompts the user to ask ai about anything
