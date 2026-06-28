@@ -302,7 +302,12 @@ async def _generate_explainer(lesson: ExplainerLesson) -> dict:
         "duration": duration,
     }
 
-# ── Explainer public endpoint ─────────────────────────────────
+# ── Explainer public endpoints ────────────────────────────────
+@app.get("/explainers")
+def list_available_explainers(user=Depends(verify_token)):
+    res = supabase_client.table("lesson_explainers").select("lesson_id").execute()
+    return {"lesson_ids": [r["lesson_id"] for r in (res.data or [])]}
+
 @app.get("/explainers/{lesson_id}")
 def get_explainer(lesson_id: str, user=Depends(verify_token)):
     res = (supabase_client.table("lesson_explainers")

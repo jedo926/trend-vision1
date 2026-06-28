@@ -739,14 +739,16 @@ window.V1App = {
     body.appendChild(paneCheck);
 
     // Tab event binding
-    this.bindTabEvents(tabList, body);
-
-    // ---- EXPLAINER STAGE ----
+    // ---- EXPLAINER STAGE (between tab-bar and body) ----
+    let explainerWrap = null;
     if (window.V1Explainer) {
       const stepStrings = les.content.steps || [];
 
-      const explainerWrap = document.createElement("div");
+      explainerWrap = document.createElement("div");
       explainerWrap.className = "explainer-wrap";
+
+      const stageEl = document.createElement("div");
+      stageEl.className = "explainer-stage";
 
       const playBtn = document.createElement("button");
       playBtn.className = "play-explainer-btn";
@@ -758,17 +760,15 @@ window.V1App = {
       progressFill.className = "explainer-progress-fill";
       progressTrack.appendChild(progressFill);
 
-      const stageEl = document.createElement("div");
-      stageEl.className = "explainer-stage";
-
-      explainerWrap.appendChild(playBtn);
-      explainerWrap.appendChild(progressTrack);
       explainerWrap.appendChild(stageEl);
-      body.appendChild(explainerWrap);
+      explainerWrap.appendChild(progressTrack);
+      explainerWrap.appendChild(playBtn);
+      // Appended to view after section is created (see below)
 
-      // Build scene immediately — always visible, no audio required
       window.V1Explainer.buildAndShow(les.id, mod.id, stepStrings, stageEl, playBtn, progressFill);
     }
+
+    this.bindTabEvents(tabList, body);
 
     // ---- LESSON FOOTER ----
     const footer = document.createElement("div");
@@ -828,6 +828,20 @@ window.V1App = {
     const section = document.createElement("section");
     section.setAttribute("data-lesson-id", les.id);
     section.appendChild(body);
+
+    // Insert explainer stage between tab-bar (header) and body-section
+    if (explainerWrap) {
+      view.appendChild(explainerWrap);
+
+      // Hide on quiz tab, show on overview/guide tabs
+      const quizTabBtn = tabList.querySelector('[data-target^="tab-check"]');
+      const otherTabBtns = [...tabList.querySelectorAll(".lesson-tab-btn")].filter(b => b !== quizTabBtn);
+      if (quizTabBtn) {
+        quizTabBtn.addEventListener("click", () => { explainerWrap.style.display = "none"; });
+        otherTabBtns.forEach(b => b.addEventListener("click", () => { explainerWrap.style.display = "block"; }));
+      }
+    }
+
     view.appendChild(section);
 
     container.appendChild(view);

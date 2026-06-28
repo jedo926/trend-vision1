@@ -1,11 +1,12 @@
-/* Vision One — Explainer Engine
+/* Vision One — Explainer Engine v2
    3 scene types: flow | dashboard | network
-   Syncs animation to pre-generated TTS via Whisper timestamps */
+   Preloads availability list for instant Play button display */
 
 window.V1Explainer = (function () {
   const API = (window.CHAT_API_URL || "http://localhost:8000").replace(/\/$/, "");
+  const _cache = {}; // lesson_id → explainer data (null = checked, no data)
+  let _available = null; // Set of lesson_ids that have explainers
 
-  // Module prefix → scene type
   const SCENE_MAP = {
     intro: "flow", "getting-started": "dashboard", dashboards: "dashboard",
     "alerts-workbench": "dashboard", endpoint: "network", email: "network",
@@ -18,198 +19,236 @@ window.V1Explainer = (function () {
     return SCENE_MAP[key];
   }
 
-  function esc(s) {
-    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
+  function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function trunc(s, n) { const w = s.split(" "); return w.length > n ? w.slice(0, n).join(" ") + "…" : s; }
 
-  function truncate(s, n) {
-    const words = s.split(" ");
-    return words.length > n ? words.slice(0, n).join(" ") + "…" : s;
-  }
-
-  // ── SVG icon helpers ────────────────────────────────────────
-  const ICONS = {
-    login: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M14 9l3 3-3 3"/></svg>`,
-    search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>`,
+  // ── SVG icons ───────────────────────────────────────────────
+  const IC = {
     shield: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3L4 7v5c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V7L12 3z"/></svg>`,
-    alert: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 20h20L12 2z"/><path d="M12 9v5M12 17v.5" stroke-linecap="round"/></svg>`,
-    check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-    user: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`,
-    cloud: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.5 18a5 5 0 000-10 5 5 0 00-9.5-1.5A4 4 0 005 18h12.5z"/></svg>`,
-    network: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><circle cx="3" cy="12" r="2"/><circle cx="21" cy="12" r="2"/><circle cx="12" cy="3" r="2"/><circle cx="12" cy="21" r="2"/><path d="M5 12h4M15 12h4M12 5v4M12 15v4"/></svg>`,
-    mail: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>`,
-    eye: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
-    lock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`,
+    search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>`,
+    alert:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 20h20L12 2z"/><path d="M12 9v5M12 17v.5" stroke-linecap="round"/></svg>`,
+    check:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    user:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`,
+    cloud:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.5 18a5 5 0 000-10 5 5 0 00-9.5-1.5A4 4 0 005 18h12.5z"/></svg>`,
+    mail:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>`,
+    lock:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`,
+    eye:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    net:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><circle cx="3" cy="12" r="2"/><circle cx="21" cy="12" r="2"/><circle cx="12" cy="3" r="2"/><circle cx="12" cy="21" r="2"/><path d="M5 12h4M15 12h4M12 5v4M12 15v4"/></svg>`,
+    play:   `<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="3,2 12,7 3,12"/></svg>`,
+    pause:  `<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="2" y="2" width="4" height="10" rx="1"/><rect x="8" y="2" width="4" height="10" rx="1"/></svg>`,
+    replay: `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7A5 5 0 1 0 5 3.5" stroke-linecap="round"/><path d="M3 2v3h3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   };
 
-  const STEP_ICONS = [ICONS.login, ICONS.search, ICONS.shield, ICONS.alert, ICONS.eye, ICONS.check];
+  const STEP_IC = [IC.shield, IC.search, IC.alert, IC.eye, IC.lock, IC.check];
 
-  // ─────────────────────────────────────────────────────────────
-  // FLOW SCENE — animated pipeline of steps
-  // ─────────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════
+  // FLOW SCENE — animated pipeline
+  // ════════════════════════════════════════════════════════════
   function buildFlow(el, steps) {
     const nodes = steps.map((step, i) => `
-      <div class="ex-node" data-step="${i}">
-        <div class="ex-node-pulse"></div>
-        <div class="ex-node-icon">${STEP_ICONS[i % STEP_ICONS.length]}</div>
-        <div class="ex-node-num">${i + 1}</div>
-        <div class="ex-node-label">${esc(truncate(step, 5))}</div>
+      <div class="ex-node ex-node-waiting" data-step="${i}">
+        <div class="ex-node-rings">
+          <div class="ex-ring r1"></div>
+          <div class="ex-ring r2"></div>
+          <div class="ex-ring r3"></div>
+        </div>
+        <div class="ex-node-body">
+          <div class="ex-node-num">${i + 1}</div>
+          <div class="ex-node-icon">${STEP_IC[i % STEP_IC.length]}</div>
+          <div class="ex-node-label">${esc(trunc(step, 4))}</div>
+        </div>
+        <div class="ex-node-check">${IC.check}</div>
       </div>
-      ${i < steps.length - 1 ? '<div class="ex-arrow"><div class="ex-arrow-line"></div></div>' : ""}
+      ${i < steps.length - 1 ? `
+        <div class="ex-conn" data-conn="${i}">
+          <div class="ex-conn-rail"></div>
+          <div class="ex-conn-pkt p1"></div>
+          <div class="ex-conn-pkt p2"></div>
+        </div>` : ""}
     `).join("");
 
     el.innerHTML = `
       <div class="ex-scene ex-flow">
         <div class="ex-scene-bg">
-          <div class="ex-bg-grid"></div>
+          <div class="ex-grid"></div>
+          <div class="ex-stream"></div>
         </div>
-        <div class="ex-flow-title">Process Flow</div>
-        <div class="ex-flow-nodes">${nodes}</div>
-        <div class="ex-step-caption"></div>
+        <div class="ex-flow-label">
+          <span class="ex-scene-tag">Process Flow</span>
+          <span class="ex-step-indicator"></span>
+        </div>
+        <div class="ex-flow-row">${nodes}</div>
+        <div class="ex-caption"></div>
       </div>`;
   }
 
   function activateFlow(el, stepIdx, steps) {
-    el.querySelectorAll(".ex-node").forEach(node => {
-      const s = parseInt(node.dataset.step);
-      node.classList.remove("active", "completed", "waiting");
-      if (stepIdx < 0) { node.classList.add("waiting"); return; }
-      node.classList.add(s < stepIdx ? "completed" : s === stepIdx ? "active" : "waiting");
+    el.querySelectorAll(".ex-node").forEach(nd => {
+      const s = parseInt(nd.dataset.step);
+      nd.className = "ex-node " + (s < stepIdx ? "ex-node-done" : s === stepIdx ? "ex-node-active" : "ex-node-waiting");
     });
-    const caption = el.querySelector(".ex-step-caption");
-    if (caption) {
-      caption.textContent = stepIdx >= 0 && steps[stepIdx] ? steps[stepIdx] : "";
-    }
-    // Animate arrows between completed steps
-    el.querySelectorAll(".ex-arrow").forEach((arrow, i) => {
-      arrow.classList.toggle("active", i < stepIdx);
+    el.querySelectorAll(".ex-conn").forEach(c => {
+      const s = parseInt(c.dataset.conn);
+      c.classList.toggle("ex-conn-active", s < stepIdx);
     });
+    const cap = el.querySelector(".ex-caption");
+    if (cap) cap.textContent = stepIdx >= 0 && steps[stepIdx] ? steps[stepIdx] : "";
+    const ind = el.querySelector(".ex-step-indicator");
+    if (ind) ind.textContent = stepIdx >= 0 ? `Step ${stepIdx + 1} of ${steps.length}` : "";
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // DASHBOARD SCENE — SOC console mockup
-  // ─────────────────────────────────────────────────────────────
-  const WIDGET_CONFIGS = [
-    { label: "Risk Index", value: "72", unit: "/100", color: "#e3b341", icon: ICONS.shield },
-    { label: "Active Alerts", value: "14", unit: " alerts", color: "#f85149", icon: ICONS.alert },
-    { label: "Endpoints", value: "247", unit: " online", color: "#3fb950", icon: ICONS.network },
-    { label: "Users", value: "58", unit: " monitored", color: "#58a6ff", icon: ICONS.user },
-    { label: "Cloud Assets", value: "31", unit: " scanned", color: "#bc8cff", icon: ICONS.cloud },
+  // ════════════════════════════════════════════════════════════
+  // DASHBOARD SCENE — SOC console
+  // ════════════════════════════════════════════════════════════
+  const W_CFG = [
+    { label: "Risk Index",      val: 72,  max: 100, color: "#e3b341", ic: IC.shield },
+    { label: "Active Alerts",   val: 14,  max: 50,  color: "#f85149", ic: IC.alert  },
+    { label: "Endpoints",       val: 247, max: 500, color: "#3fb950", ic: IC.net    },
+    { label: "Users Monitored", val: 58,  max: 100, color: "#58a6ff", ic: IC.user   },
+    { label: "Cloud Assets",    val: 31,  max: 60,  color: "#bc8cff", ic: IC.cloud  },
   ];
+
+  function sparkline(n) {
+    const pts = Array.from({ length: 8 }, (_, i) =>
+      `${i * 14},${20 - Math.round(8 + Math.sin(i * 0.9 + n) * 7)}`).join(" ");
+    return `<svg class="ex-spark" viewBox="0 0 98 24" preserveAspectRatio="none">
+      <polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
 
   function buildDashboard(el, steps) {
     const widgets = steps.map((step, i) => {
-      const cfg = WIDGET_CONFIGS[i % WIDGET_CONFIGS.length];
+      const cfg = W_CFG[i % W_CFG.length];
+      const pct = Math.round((cfg.val / cfg.max) * 100);
       return `
-        <div class="ex-widget" data-step="${i}" style="--w-color:${cfg.color}">
-          <div class="ex-widget-glow"></div>
-          <div class="ex-widget-icon">${cfg.icon}</div>
-          <div class="ex-widget-val">${cfg.value}<span class="ex-widget-unit">${cfg.unit}</span></div>
-          <div class="ex-widget-label">${esc(cfg.label)}</div>
-          <div class="ex-widget-bar"><div class="ex-widget-fill" style="background:${cfg.color}"></div></div>
-          <div class="ex-widget-step">${esc(truncate(step, 6))}</div>
+        <div class="ex-widget" data-step="${i}" style="--wc:${cfg.color}">
+          <div class="ex-widget-sweep"></div>
+          <div class="ex-widget-top">
+            <div class="ex-widget-icon">${cfg.ic}</div>
+            <div class="ex-widget-label">${esc(cfg.label)}</div>
+          </div>
+          <div class="ex-widget-val" data-target="${cfg.val}">
+            <span class="ex-widget-num">${cfg.val}</span>
+          </div>
+          <div class="ex-widget-bar-wrap">
+            <div class="ex-widget-bar" style="--pct:${pct}%"></div>
+          </div>
+          ${sparkline(i)}
+          <div class="ex-widget-desc">${esc(trunc(step, 7))}</div>
         </div>`;
     }).join("");
 
     el.innerHTML = `
       <div class="ex-scene ex-dashboard">
-        <div class="ex-scene-bg"><div class="ex-bg-grid"></div></div>
-        <div class="ex-dash-header">
-          <div class="ex-dash-logo">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5v3.5c0 2.8 2.2 4.9 5 5.5 2.8-.6 5-2.7 5-5.5V3.5L7 1z" stroke="#d6001c" stroke-width="1.2" stroke-linejoin="round"/></svg>
-            Vision One Console
-          </div>
-          <div class="ex-dash-status"><span class="ex-dot-live"></span>Live</div>
+        <div class="ex-scene-bg"><div class="ex-grid"></div></div>
+        <div class="ex-dash-top">
+          <div class="ex-dash-logo">${IC.shield} Vision One Console</div>
+          <div class="ex-dash-live"><span class="ex-live-dot"></span>Live</div>
         </div>
-        <div class="ex-dash-widgets">${widgets}</div>
+        <div class="ex-dash-grid">${widgets}</div>
+        <div class="ex-caption"></div>
       </div>`;
   }
 
-  function activateDashboard(el, stepIdx) {
+  function activateDashboard(el, stepIdx, steps) {
     el.querySelectorAll(".ex-widget").forEach(w => {
       const s = parseInt(w.dataset.step);
-      w.classList.remove("active", "completed");
-      if (stepIdx < 0) return;
-      if (s < stepIdx) w.classList.add("completed");
-      if (s === stepIdx) w.classList.add("active");
+      w.classList.remove("ex-widget-active", "ex-widget-done");
+      if (s < stepIdx) w.classList.add("ex-widget-done");
+      if (s === stepIdx) {
+        w.classList.add("ex-widget-active");
+        // Animate number count-up
+        const span = w.querySelector(".ex-widget-num");
+        const target = parseInt(w.dataset.target || span?.textContent || 0);
+        if (span && target) countUp(span, target);
+      }
     });
+    const cap = el.querySelector(".ex-caption");
+    if (cap) cap.textContent = stepIdx >= 0 && steps[stepIdx] ? steps[stepIdx] : "";
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // NETWORK SCENE — topology with animated threat/detection flow
-  // ─────────────────────────────────────────────────────────────
-  const NET_NODES = [
-    { id: "hub", label: "Vision One", x: 50, y: 50, icon: ICONS.shield, hub: true },
-    { id: "internet", label: "Internet", x: 10, y: 10, icon: ICONS.network },
-    { id: "email", label: "Email", x: 85, y: 15, icon: ICONS.mail },
-    { id: "endpoint", label: "Endpoint", x: 90, y: 80, icon: ICONS.lock },
-    { id: "cloud", label: "Cloud", x: 10, y: 85, icon: ICONS.cloud },
-    { id: "user", label: "User", x: 50, y: 90, icon: ICONS.user },
+  function countUp(el, target) {
+    const start = Math.max(0, target - Math.round(target * 0.4));
+    const dur = 600;
+    const t0 = performance.now();
+    function frame(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      el.textContent = Math.round(start + (target - start) * p);
+      if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // NETWORK SCENE — threat topology
+  // ════════════════════════════════════════════════════════════
+  const NET = [
+    { id: "hub",      label: "Vision One", x: 50, y: 48, ic: IC.shield, hub: true  },
+    { id: "attacker", label: "Attacker",   x: 12, y: 12, ic: IC.alert              },
+    { id: "email",    label: "Email GW",   x: 85, y: 15, ic: IC.mail               },
+    { id: "endpoint", label: "Endpoint",   x: 88, y: 80, ic: IC.lock               },
+    { id: "cloud",    label: "Cloud",      x: 12, y: 82, ic: IC.cloud              },
+    { id: "user",     label: "User",       x: 50, y: 88, ic: IC.user               },
   ];
 
   function buildNetwork(el, steps) {
-    const nodeCount = Math.min(steps.length + 1, NET_NODES.length);
-    const usedNodes = NET_NODES.slice(0, nodeCount);
+    const count = Math.min(steps.length + 1, NET.length);
+    const nodes = NET.slice(0, count);
+    const hub = nodes[0];
 
-    const nodesHtml = usedNodes.map((n, i) => `
-      <div class="ex-net-node ${n.hub ? "ex-net-hub" : ""}" data-node="${n.id}"
-           style="left:${n.x}%;top:${n.y}%">
-        <div class="ex-net-pulse"></div>
-        <div class="ex-net-icon">${n.icon}</div>
-        <div class="ex-net-label">${esc(n.label)}</div>
-      </div>`).join("");
-
-    // Connections: hub to each spoke, activated per step
-    const connsHtml = steps.map((_, i) => {
-      const spoke = usedNodes[i + 1] || usedNodes[usedNodes.length - 1];
-      const hub = usedNodes[0];
+    const conns = steps.map((_, i) => {
+      const spoke = nodes[i + 1] || nodes[nodes.length - 1];
       const dx = spoke.x - hub.x, dy = spoke.y - hub.y;
       const len = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-      return `<div class="ex-net-conn" data-step="${i}"
-                   style="left:${hub.x}%;top:${hub.y}%;width:${len}%;transform:rotate(${angle}deg)">
-                <div class="ex-net-packet"></div>
+      const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+      return `<div class="ex-conn2" data-step="${i}"
+                   style="left:${hub.x}%;top:${hub.y}%;width:${len}%;transform-origin:left center;transform:rotate(${ang}deg)">
+                <div class="ex-conn2-line"></div>
+                <div class="ex-pkt2 pk1"></div>
+                <div class="ex-pkt2 pk2"></div>
+                <div class="ex-pkt2 pk3"></div>
               </div>`;
     }).join("");
 
+    const nodeHtml = nodes.map(n => `
+      <div class="ex-net-node ${n.hub ? "ex-hub-node" : ""}" data-node="${n.id}"
+           style="left:${n.x}%;top:${n.y}%">
+        <div class="ex-hub-radar"></div>
+        <div class="ex-net-ring"></div>
+        <div class="ex-net-ico">${n.ic}</div>
+        <div class="ex-net-lbl">${esc(n.label)}</div>
+      </div>`).join("");
+
     el.innerHTML = `
       <div class="ex-scene ex-network">
-        <div class="ex-scene-bg"><div class="ex-bg-grid"></div></div>
+        <div class="ex-scene-bg"><div class="ex-grid"></div></div>
         <div class="ex-net-canvas">
-          ${connsHtml}
-          ${nodesHtml}
+          ${conns}
+          ${nodeHtml}
         </div>
-        <div class="ex-step-caption"></div>
+        <div class="ex-caption"></div>
       </div>`;
   }
 
   function activateNetwork(el, stepIdx, steps) {
-    el.querySelectorAll(".ex-net-conn").forEach(c => {
+    el.querySelectorAll(".ex-conn2").forEach(c => {
       const s = parseInt(c.dataset.step);
-      c.classList.remove("active", "completed");
-      if (stepIdx < 0) return;
-      if (s < stepIdx) c.classList.add("completed");
-      if (s === stepIdx) c.classList.add("active");
+      c.classList.remove("ex-conn2-active", "ex-conn2-done");
+      if (s < stepIdx) c.classList.add("ex-conn2-done");
+      if (s === stepIdx) c.classList.add("ex-conn2-active");
     });
-    // Hub always active, highlight step-specific spoke node
     el.querySelectorAll(".ex-net-node").forEach((n, i) => {
-      n.classList.remove("active", "completed");
-      if (i === 0) { n.classList.add("active"); return; }
+      n.classList.remove("ex-net-active", "ex-net-done");
+      if (i === 0) return; // hub always stays active via CSS
       const s = i - 1;
-      if (stepIdx >= 0) {
-        if (s < stepIdx) n.classList.add("completed");
-        if (s === stepIdx) n.classList.add("active");
-      }
+      if (s < stepIdx) n.classList.add("ex-net-done");
+      if (s === stepIdx) n.classList.add("ex-net-active");
     });
-    const caption = el.querySelector(".ex-step-caption");
-    if (caption) {
-      caption.textContent = stepIdx >= 0 && steps[stepIdx] ? steps[stepIdx] : "Monitoring…";
-    }
+    const cap = el.querySelector(".ex-caption");
+    if (cap) cap.textContent = stepIdx >= 0 && steps[stepIdx] ? steps[stepIdx] : "Monitoring all layers…";
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // SCENE DISPATCH
-  // ─────────────────────────────────────────────────────────────
+  // ── Dispatch ─────────────────────────────────────────────────
   function buildScene(type, el, steps) {
     if (type === "dashboard") buildDashboard(el, steps);
     else if (type === "network") buildNetwork(el, steps);
@@ -217,93 +256,131 @@ window.V1Explainer = (function () {
   }
 
   function activateStep(type, el, stepIdx, steps) {
-    if (type === "dashboard") activateDashboard(el, stepIdx);
+    if (type === "dashboard") activateDashboard(el, stepIdx, steps);
     else if (type === "network") activateNetwork(el, stepIdx, steps);
     else activateFlow(el, stepIdx, steps);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // MAIN — build scene immediately, wire audio in background
-  // ─────────────────────────────────────────────────────────────
+  // ── Preload availability list (called once after login) ──────
+  async function preload() {
+    if (_available) return;
+    const token = window.V1Auth?.getToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/explainers`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      _available = new Set(data.lesson_ids || []);
+    } catch { _available = new Set(); }
+  }
+
+  // ── Main entry point ─────────────────────────────────────────
   function buildAndShow(lessonId, moduleId, steps, stageEl, playBtn, progressEl) {
     const sceneType = getSceneType(moduleId);
 
-    // Render scene immediately — always visible
     try {
       buildScene(sceneType, stageEl, steps);
       activateStep(sceneType, stageEl, -1, steps);
     } catch (e) {
-      console.warn("V1Explainer: scene build failed", e);
+      console.warn("V1Explainer build failed", e);
       return;
     }
 
-    // Wire audio asynchronously — only shows Play button if audio exists
-    const playIcon    = `<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="3,2 12,7 3,12"/></svg>`;
-    const pauseIcon   = `<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="2" y="2" width="4" height="10" rx="1"/><rect x="8" y="2" width="4" height="10" rx="1"/></svg>`;
-    const replayIcon  = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7A5 5 0 1 0 5 3.5" stroke-linecap="round"/><path d="M3 2v3h3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    // If preload already confirmed audio exists → show button immediately
+    if (_available?.has(lessonId)) {
+      _showPlayBtn(playBtn, IC);
+    }
 
+    // Async: fetch audio data + wire controls
     (async () => {
       const token = window.V1Auth?.getToken();
       if (!token) return;
 
-      let data = null;
-      try {
-        const res = await fetch(`${API}/explainers/${lessonId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        data = await res.json();
-      } catch { return; }
+      let data = _cache[lessonId];
+      if (data === undefined) {
+        try {
+          const res = await fetch(`${API}/explainers/${lessonId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          data = res.ok ? await res.json() : null;
+        } catch { data = null; }
+        _cache[lessonId] = data;
+        if (data && _available) _available.add(lessonId);
+      }
 
-      const timestamps = (data.step_timestamps || []).sort((a, b) => a.t - b.t);
-      const audio = new Audio(data.audio_url);
-      let lastStep = -2;
-      let playing = false;
+      if (!data) { playBtn.style.display = "none"; return; }
 
-      audio.addEventListener("timeupdate", () => {
-        const t = audio.currentTime;
-        let current = -1;
-        for (const ts of timestamps) { if (ts.t <= t) current = ts.step; }
-        if (current !== lastStep) {
-          lastStep = current;
-          activateStep(sceneType, stageEl, current, steps);
-        }
-        if (progressEl) {
-          const dur = audio.duration || data.duration_seconds || 1;
-          progressEl.style.width = `${(t / dur) * 100}%`;
-        }
-      });
-      audio.addEventListener("ended", () => {
-        playing = false;
-        playBtn.innerHTML = replayIcon + " Replay";
-        playBtn.disabled = false;
-        if (progressEl) progressEl.style.width = "100%";
-        activateStep(sceneType, stageEl, steps.length - 1, steps);
-      });
-      audio.addEventListener("error", () => {
-        playBtn.disabled = false;
-        playBtn.innerHTML = playIcon + " Play Explainer";
-      });
-
-      playBtn.innerHTML = playIcon + " Play Explainer";
-      playBtn.style.display = "flex";
-      playBtn.addEventListener("click", () => {
-        if (!playing) {
-          if (audio.ended) {
-            audio.currentTime = 0; lastStep = -2;
-            activateStep(sceneType, stageEl, -1, steps);
-          }
-          audio.play();
-          playing = true;
-          playBtn.innerHTML = pauseIcon + " Pause";
-        } else {
-          audio.pause();
-          playing = false;
-          playBtn.innerHTML = playIcon + " Resume";
-        }
-      });
+      _wireAudio(data, sceneType, stageEl, playBtn, progressEl, steps);
     })();
   }
 
-  return { buildAndShow, getSceneType };
+  function _showPlayBtn(btn) {
+    btn.innerHTML = IC.play + " Play Explainer";
+    btn.style.display = "flex";
+  }
+
+  function _wireAudio(data, sceneType, stageEl, playBtn, progressEl, steps) {
+    const timestamps = (data.step_timestamps || []).sort((a, b) => a.t - b.t);
+    const audio = new Audio(data.audio_url);
+    let lastStep = -2;
+    let playing = false;
+
+    audio.addEventListener("timeupdate", () => {
+      const t = audio.currentTime;
+      let cur = -1;
+      for (const ts of timestamps) { if (ts.t <= t) cur = ts.step; }
+      if (cur !== lastStep) { lastStep = cur; activateStep(sceneType, stageEl, cur, steps); }
+      if (progressEl) {
+        const dur = audio.duration || data.duration_seconds || 1;
+        progressEl.style.width = `${(t / dur) * 100}%`;
+      }
+    });
+
+    audio.addEventListener("ended", () => {
+      playing = false;
+      playBtn.innerHTML = IC.replay + " Replay";
+      playBtn.disabled = false;
+      if (progressEl) progressEl.style.width = "100%";
+      activateStep(sceneType, stageEl, steps.length - 1, steps);
+    });
+    audio.addEventListener("error", () => {
+      playing = false; playBtn.disabled = false;
+      playBtn.innerHTML = IC.play + " Play Explainer";
+    });
+
+    // Make sure button is visible and wired
+    playBtn.style.display = "flex";
+    playBtn.innerHTML = IC.play + " Play Explainer";
+    // Remove any previous listener by replacing the element
+    const fresh = playBtn.cloneNode(true);
+    playBtn.parentNode?.replaceChild(fresh, playBtn);
+    fresh.innerHTML = IC.play + " Play Explainer";
+    fresh.style.display = "flex";
+    fresh.addEventListener("click", () => {
+      if (!playing) {
+        if (audio.ended) { audio.currentTime = 0; lastStep = -2; activateStep(sceneType, stageEl, -1, steps); }
+        audio.play();
+        playing = true;
+        fresh.innerHTML = IC.pause + " Pause";
+      } else {
+        audio.pause();
+        playing = false;
+        fresh.innerHTML = IC.play + " Resume";
+      }
+    });
+  }
+
+  // Call preload whenever auth state changes
+  const _origHide = document.getElementById?.bind(document);
+  // Hook into auth: preload when token becomes available
+  setTimeout(() => {
+    const poll = setInterval(() => {
+      if (window.V1Auth?.getToken()) { clearInterval(poll); preload(); }
+    }, 200);
+    setTimeout(() => clearInterval(poll), 10000);
+  }, 0);
+
+  return { buildAndShow, getSceneType, preload };
 })();

@@ -2,6 +2,22 @@
 
 ---
 
+## 2026-06-29 — Explainer v2: placement, richer animations, instant button, quiz-tab hidden
+
+**Prompt:** the play explainer button shows up way too late and the animations are too simple i wanna see more movement and also i don't know about the placement it feels a bit too crowded also why is it on every page it should only be on the first and second page not the quiz
+
+**What was done:**
+- **Placement**: Moved stage out of lesson body, inserted between tab-bar and body-section so it sits cleanly above content without crowding it
+- **Quiz-tab hidden**: Stage hides when "Quick Check" tab is clicked, reappears on Overview/Guide tabs
+- **Instant Play button**: Added `GET /explainers` endpoint that returns all lesson IDs with generated audio. `explainer.js` preloads this list as soon as auth resolves and stores it in a Set — button appears immediately from cache without waiting for per-lesson fetch
+- **Richer animations** — complete CSS rewrite:
+  - Flow: animated scrolling grid + diagonal data-stream overlay, triple expanding pulse rings on active node, dual data packets traveling along connectors, step counter display
+  - Dashboard: sweep scan animation on widget activate, count-up number animation (JS `requestAnimationFrame`), sparkline SVG per widget, description slides in on active, bar fill animates
+  - Network: rotating radar ring on Vision One hub with conic-gradient sweep, 3 staggered animated packets on active connections, animated dashed connection lines, hub always pulses with glow
+- Redeployed both Railway and Vercel
+
+---
+
 ## 2026-06-29 — Fix: animations now always visible, not gated behind audio
 
 **Prompt:** im generating the audio but dont see any animations or new visualisations
