@@ -2,6 +2,17 @@
 
 ---
 
+## 2026-06-28 — Bigger chatbot + lesson recommendations
+
+**Prompt:** make the chat bot box much bigger and if someone asks something and a guide or a lesson is available at the end make the chat bot tell them they can also check out this source
+
+**What was done:**
+- `css/style.css` — Chat panel width 360→480px, max-height 520→680px. Added `.chat-lessons` / `.chat-lesson-link` styles. Added mobile breakpoint so panel fills width on small screens.
+- `index.html` — `findRelatedLessons(question)` searches `window.V1_MODULES` for lessons whose titles contain keywords from the user's question (words >3 chars). Up to 3 matches shown as clickable "Related lessons in this course" buttons at the bottom of every assistant reply. Clicking a lesson link navigates directly to it via `window.V1App.navigateToLesson()` and closes the chat panel.
+- Redeployed to Vercel — https://trendvision1.vercel.app
+
+---
+
 ## 2026-06-28 — Fix RAG search crashing on specific questions
 
 **Prompt:** the agent cant reach the backend - how do i add policies to one department only → Couldn't reach the assistant
