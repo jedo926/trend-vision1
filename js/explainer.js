@@ -9,7 +9,7 @@ window.V1Explainer = (function () {
 
   const SCENE_MAP = {
     intro: "flow", "getting-started": "dashboard", dashboards: "dashboard",
-    "alerts-workbench": "dashboard", endpoint: "network", email: "network",
+    "alerts-workbench": "dashboard", endpoint: "icons", email: "icons",
     cloud: "network", network: "network", soc: "flow", risk: "dashboard",
     identity: "flow", xdr: "network", final: "flow", advanced: "flow",
   };
@@ -248,16 +248,68 @@ window.V1Explainer = (function () {
     if (cap) cap.textContent = stepIdx >= 0 && steps[stepIdx] ? steps[stepIdx] : "Monitoring all layers…";
   }
 
+  // ════════════════════════════════════════════════════════════
+  // ICONS SCENE — static circle-ringed icon grid (endpoint/email)
+  // ════════════════════════════════════════════════════════════
+  const ICON_SETS = {
+    endpoint: [
+      { ic: IC.lock,   label: "Agent"       },
+      { ic: IC.shield, label: "Protection"  },
+      { ic: IC.search, label: "Detection"   },
+      { ic: IC.eye,    label: "Monitoring"  },
+      { ic: IC.check,  label: "Response"    },
+    ],
+    email: [
+      { ic: IC.mail,   label: "Email GW"    },
+      { ic: IC.shield, label: "Filter"      },
+      { ic: IC.alert,  label: "Threats"     },
+      { ic: IC.search, label: "Analysis"    },
+      { ic: IC.check,  label: "Quarantine"  },
+    ],
+  };
+
+  function buildIcons(el, steps, moduleId) {
+    const key = Object.keys(ICON_SETS).find(k => moduleId.startsWith(k)) || "endpoint";
+    const set  = ICON_SETS[key];
+    const count = Math.min(steps.length, set.length);
+    const items = set.slice(0, count).map((ic, i) => `
+      <div class="ex-ic-item" data-step="${i}">
+        <div class="ex-ic-ring">
+          <div class="ex-ic-inner">${ic.ic}</div>
+        </div>
+        <div class="ex-ic-label">${esc(ic.label)}</div>
+      </div>`).join("");
+
+    el.innerHTML = `
+      <div class="ex-scene ex-icons">
+        <div class="ex-ic-grid">${items}</div>
+        <div class="ex-caption"></div>
+      </div>`;
+  }
+
+  function activateIcons(el, stepIdx, steps) {
+    el.querySelectorAll(".ex-ic-item").forEach(item => {
+      const s = parseInt(item.dataset.step);
+      item.classList.remove("ex-ic-active", "ex-ic-done");
+      if (s < stepIdx) item.classList.add("ex-ic-done");
+      if (s === stepIdx) item.classList.add("ex-ic-active");
+    });
+    const cap = el.querySelector(".ex-caption");
+    if (cap) cap.textContent = stepIdx >= 0 && steps[stepIdx] ? steps[stepIdx] : "";
+  }
+
   // ── Dispatch ─────────────────────────────────────────────────
-  function buildScene(type, el, steps) {
+  function buildScene(type, el, steps, moduleId) {
     if (type === "dashboard") buildDashboard(el, steps);
     else if (type === "network") buildNetwork(el, steps);
+    else if (type === "icons") buildIcons(el, steps, moduleId);
     else buildFlow(el, steps);
   }
 
   function activateStep(type, el, stepIdx, steps) {
     if (type === "dashboard") activateDashboard(el, stepIdx, steps);
     else if (type === "network") activateNetwork(el, stepIdx, steps);
+    else if (type === "icons") activateIcons(el, stepIdx, steps);
     else activateFlow(el, stepIdx, steps);
   }
 
@@ -281,7 +333,7 @@ window.V1Explainer = (function () {
     const sceneType = getSceneType(moduleId);
 
     try {
-      buildScene(sceneType, stageEl, steps);
+      buildScene(sceneType, stageEl, steps, moduleId);
       activateStep(sceneType, stageEl, -1, steps);
     } catch (e) {
       console.warn("V1Explainer build failed", e);
