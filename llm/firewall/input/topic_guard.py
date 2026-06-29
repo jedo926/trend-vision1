@@ -10,16 +10,22 @@ _ALLOWED_KEYWORDS = {
     "security", "cyber", "attack", "log", "event", "rule", "filter", "search", "query",
     "ticket", "case", "forensic", "behaviour", "behavior", "artifact", "indicator", "ioc",
     "mitre", "att&ck", "zero trust", "privilege", "access", "authentication", "mfa",
-    "firewall", "proxy", "sandbox", "deception",
+    "firewall", "proxy", "sandbox", "deception", "vulnerability", "compliance", "patch",
+    "inventory", "isolation", "quarantine", "hash", "ip address", "domain", "url",
+    "oat", "exception", "observed attack", "threat intelligence", "report", "ingest",
+    "connector", "gateway", "ztsa", "saas", "container", "kubernetes", "aws", "azure", "gcp",
+    "ransomware", "apt", "lateral movement", "privilege escalation", "data exfiltration",
+    "kill chain", "ttps", "cve", "cvss", "exploit", "payload", "c2", "c&c",
+    "how", "what", "where", "when", "why", "explain", "show", "help",
 }
 
+# Only block things that are unambiguously off-topic with no overlap with security/IT vocabulary.
 _BLOCKED_PATTERNS = [
-    "python", "javascript", "java", "c++", "c#", "golang", "rust", "ruby", "php",
-    "program", "game", "chess", "sudoku", "rock paper", "tic tac",
-    "script", "function", "class", "def ", "import ",
-    "recipe", "cook", "movie", "song", "joke", "poem", "story", "essay",
-    "math", "calculus", "algebra", "homework",
-    "write me", "build me", "create me", "make me", "generate me",
+    "rock paper scissors", "tic tac toe", "chess", "sudoku",
+    "recipe", "how to cook", "cooking", "bake a", "baking",
+    "movie review", "song lyrics", "write a poem", "tell me a joke",
+    "my homework", "calculus problem", "algebra problem",
+    "horoscope", "lottery numbers",
 ]
 
 
@@ -40,7 +46,6 @@ def check_topic(text: str) -> TopicResult:
     if any(k in q for k in _ALLOWED_KEYWORDS):
         return TopicResult(allowed=True, reason="allowed_keyword", confidence=0.9)
 
-    if len(q.split()) < 6:
-        return TopicResult(allowed=True, reason="short_query", confidence=0.6)
-
-    return TopicResult(allowed=False, reason="no_allowed_keywords", confidence=0.7)
+    # Pass short queries and everything else through to the LLM — the system
+    # prompt handles off-topic refusals more accurately than keyword matching.
+    return TopicResult(allowed=True, reason="passthrough", confidence=0.5)

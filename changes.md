@@ -2,6 +2,16 @@
 
 ---
 
+## 2026-06-29 — Relax guardrails + fix agent lesson referrals
+
+**Prompt:** the guardrails are way too strict and the lesson referrals are inaccurate fix that please for the agent
+
+**What was done:**
+- `llm/firewall/input/topic_guard.py` — rewrote blocked patterns. Removed overly broad terms that matched legitimate security questions ("script", "function", "class", "import", "java", "create me", etc.). Kept only unambiguously off-topic patterns (tic tac toe, recipes, song lyrics, etc.). Expanded allowed keywords with 20+ additional security terms. Changed fallback from BLOCK to PASSTHROUGH — the LLM system prompt handles off-topic refusals more accurately than keyword matching.
+- `main.py` (SYSTEM_PROMPT) — added full 58-lesson catalog with exact lesson IDs and display titles. Agent now references real lesson names and never invents ones that don't exist. Tightened hard-refusal wording to avoid blocking legitimate security/IT questions.
+
+---
+
 ## 2026-06-29 — Console deep-links in lesson step guides
 
 **Prompt:** keep this on dev for now but i wana try linking so in guides when ever it tells them to go there and do that there should be a link or a highlighted word that has a link behind it so go through all modules find anywhere or thing that needs a link/redirect
