@@ -2,6 +2,19 @@
 
 ---
 
+## 2026-06-29 — Expand all course modules with beginner-focused educational content
+
+**Prompt:** "Expand every lesson in `js/data/modules.js` to be dramatically more educational, beginner-focused, and thorough — like a university textbook. Significantly expand each content field (whatThisMeans, whyItMatters, whatYouWillLearn, steps, scenario, commonMistakes, summary) while preserving the exact JS structure, all module/lesson IDs, all quiz content, estimatedMins, isAdvanced, icon, and the `window.V1_MODULES` wrapper." (Plus coordinator follow-ups: no hyperlinks/URLs anywhere in content; weave Apex Central malware-protection best practices into the endpoint-security lesson steps as hands-on configuration guidance.)
+
+**What was done:**
+- Rewrote the `content` object of all 58 lessons across all 16 modules in `js/data/modules.js` to textbook-depth, beginner-focused prose: 3–5 sentence `whatThisMeans` and `whyItMatters` with terminology defined, 5–7 item `whatYouWillLearn`, multi-sentence `steps`, 4–6 sentence narrative `scenario`, 4–5 item `commonMistakes`, and 3–4 sentence `summary`.
+- Wove concrete, hands-on Apex One / Apex Central malware-protection best practices (Smart Scan, real-time/scheduled scan settings, per-malware actions, Web Reputation, C&C suspicious connections, Behavior Monitoring/Ransomware/Anti-Exploit, Predictive ML, fileless protection, Device/Application Control, Vulnerability Protection, agent self-protection, OS-level prevention, Connected Threat Defense, XDR Endpoint Sensor) into the endpoint-security lesson steps as practical configuration guidance.
+- Preserved exactly: all module and lesson IDs, all quiz questions/options/correct/hint fields, estimatedMins, isAdvanced, icon, module/lesson count, and the `window.V1_MODULES = [...]` wrapper.
+- Kept all content plain-text with no URLs, markdown links, or HTML anchors.
+- Validated: file loads cleanly in Node, 16 modules / 58 lessons / 58 quizzes, zero duplicate IDs, zero non-ASCII characters.
+
+---
+
 ## 2026-06-29 — Remove all broken hyperlinks from lesson steps
 
 **Prompt:** "remove the hyperlinks they all dont work"
@@ -540,3 +553,7 @@ CREATE POLICY "service role full access" ON documents USING (true) WITH CHECK (t
 - Fixed the one non-conforming import on line 8: changed `from langchain.chains import create_retrieval_chain` → `from langchain.chains.retrieval import create_retrieval_chain` (modern path as specified).
 - Ran `python -m py_compile main.py` — syntax OK; AST parsed 11 import statements successfully.
 - All 6 requirements confirmed present: dotenv load, CORS `"*"`, Supabase + `text-embedding-3-small`, modern LangChain imports, `gpt-4o-mini` strict QA chain with `k=4`, and `POST /query` with deduplicated sources.
+
+## Fix: Docling RAG ingestion error fallback
+**Prompt:** "i got this Error: Docling error: when i tried updating the rag"
+**What was done:** Fixed document ingestion in `main.py` — when `DOCLING_URL` is set but Docling is unavailable or errors, the upload now silently falls back to markitdown instead of raising a 502 error that blocked all document uploads.
