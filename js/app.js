@@ -1,5 +1,12 @@
 // Vision One Training Platform — App Orchestrator
 
+function isModuleAllowed(moduleId) {
+  const p = window.V1Profile;
+  if (!p || !p.approved) return false;
+  if (!p.allowed_modules) return true; // null = admin, all access
+  return p.allowed_modules.includes(moduleId);
+}
+
 window.V1App = {
   currentLessonId: null,
   searchFocusedIdx: -1,
@@ -234,13 +241,15 @@ window.V1App = {
         lesRow.className = "sidebar-lesson-row";
         lesRow.setAttribute("data-id", les.id);
 
-        const locked = mode === "execution" && !prevDone && !mod.isAdvanced;
-        if (locked) lesRow.classList.add("locked");
-        if (completed.has(les.id)) lesRow.classList.add("completed");
+        const adminLocked = !isModuleAllowed(mod.id);
+        const locked = !adminLocked && mode === "execution" && !prevDone && !mod.isAdvanced;
+        if (adminLocked) lesRow.classList.add("admin-locked");
+        else if (locked) lesRow.classList.add("locked");
+        if (!adminLocked && completed.has(les.id)) lesRow.classList.add("completed");
 
         const statusIcon = document.createElement("span");
         statusIcon.className = "lesson-status-icon" + (completed.has(les.id) ? " completed" : " pending");
-        statusIcon.innerHTML = locked ? this.icons.lock : (completed.has(les.id) ? "✓" : "○");
+        statusIcon.innerHTML = adminLocked ? this.icons.lock : locked ? this.icons.lock : (completed.has(les.id) ? "✓" : "○");
 
         const lesTitle = document.createElement("span");
         lesTitle.className = "lesson-title-text";
@@ -252,7 +261,7 @@ window.V1App = {
         bookmarkBtn.setAttribute("aria-label", "Bookmark lesson");
         bookmarkBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          if (locked) return;
+          if (adminLocked || locked) return;
           this.toggleBookmark(les.id);
         });
 
@@ -261,6 +270,7 @@ window.V1App = {
         lesRow.appendChild(bookmarkBtn);
 
         lesRow.addEventListener("click", () => {
+          if (adminLocked) { this.showBadgeToast("admin-locked"); return; }
           if (locked) { this.showBadgeToast("locked-step"); return; }
           this.navigateToLesson(les.id);
           // close mobile sidebar
@@ -331,6 +341,7 @@ window.V1App = {
         row.appendChild(text);
 
         row.addEventListener("click", () => {
+          if (!isModuleAllowed(mod.id)) { this.showBadgeToast("admin-locked"); return; }
           const mode = window.V1Storage.getMode();
           const sbRow = document.querySelector(`.sidebar-lesson-row[data-id="${les.id}"]`);
           if (mode === "execution" && sbRow && sbRow.classList.contains("locked")) {
@@ -452,8 +463,10 @@ window.V1App = {
       const totalMinsMod = modLessons.reduce((s, l) => s + (l.estimatedMins || 5), 0);
       const hasStarted = completedCount > 0;
 
+      const adminLocked = !isModuleAllowed(mod.id);
+
       const card = document.createElement("div");
-      card.className = "module-card";
+      card.className = "module-card" + (adminLocked ? " admin-locked" : "");
       card.setAttribute("role", "button");
       card.setAttribute("tabindex", "0");
 
@@ -461,11 +474,17 @@ window.V1App = {
         <div class="module-card-header">
           <div class="module-card-icon">${this.getModuleIcon(mod.id)}</div>
           <span class="module-card-badge ${mod.isAdvanced ? 'advanced' : ''}">${mod.isAdvanced ? 'Advanced' : 'Core'}</span>
+          ${adminLocked ? `<span class="module-card-lock-badge">Locked</span>` : ''}
         </div>
         <div>
           <div class="module-card-title">${mod.title}</div>
           <div class="module-card-meta">${modLessons.length} lessons &middot; ${totalMinsMod} min</div>
         </div>
+        ${adminLocked ? `
+        <div class="module-card-admin-lock">
+          <svg width="16" height="16" viewBox="0 0 13 13" fill="none"><rect x="2.5" y="5.5" width="8" height="6" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 5.5V4A2.5 2.5 0 019 4v1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Contact your admin to unlock this module
+        </div>` : `
         <div class="module-card-progress">
           <div class="module-card-progress-bar">
             <div class="module-card-progress-fill" style="width:${pct}%"></div>
@@ -480,12 +499,12 @@ window.V1App = {
             </div>
           `).join("")}
           ${modLessons.length > 3 ? `<div class="module-card-lesson-item" style="color:var(--t3)">+${modLessons.length - 3} more</div>` : ''}
-        </div>
-        <button class="module-card-action ${hasStarted && pct < 100 ? 'continue' : ''}">${pct === 100 ? 'Review' : hasStarted ? 'Continue' : 'Start'}</button>
+        </div>`}
+        <button class="module-card-action ${!adminLocked && hasStarted && pct < 100 ? 'continue' : ''}" ${adminLocked ? 'disabled' : ''}>${adminLocked ? 'Locked' : pct === 100 ? 'Review' : hasStarted ? 'Continue' : 'Start'}</button>
       `;
 
       const startLesson = () => {
-        // Find first incomplete lesson, or first lesson if all complete
+        if (adminLocked) { this.showBadgeToast("admin-locked"); return; }
         const target = modLessons.find(l => !completed.has(l.id)) || modLessons[0];
         if (target) this.navigateToLesson(target.id);
       };
@@ -1273,10 +1292,13 @@ window.V1App = {
   // TOAST (locked-step warning only)
   // ============================================================
   showBadgeToast(badgeId) {
-    if (badgeId !== "locked-step") return;
+    if (badgeId !== "locked-step" && badgeId !== "admin-locked") return;
     const toast = document.createElement("div");
     toast.className = "badge-toast warning animate-in";
-    toast.innerHTML = `<span class="toast-ribbon">Access Restricted</span><span class="toast-badge-name">Complete previous lessons first.</span>`;
+    const msg = badgeId === "admin-locked"
+      ? `<span class="toast-ribbon">Module Locked</span><span class="toast-badge-name">Contact your admin to unlock this module.</span>`
+      : `<span class="toast-ribbon">Access Restricted</span><span class="toast-badge-name">Complete previous lessons first.</span>`;
+    toast.innerHTML = msg;
     document.body.appendChild(toast);
     setTimeout(() => {
       toast.classList.remove("animate-in");

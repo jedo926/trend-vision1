@@ -3164,3 +3164,43 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 }
 .ex-ic-item.ex-ic-active .ex-ic-label { color: var(--t1); }
 .ex-ic-item.ex-ic-done .ex-ic-label { color: #3fb950; }
+
+/* ── Admin-locked module states ── */
+.sidebar-lesson-row.admin-locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+.sidebar-lesson-row.admin-locked .lesson-status-icon { color: var(--t3); }
+
+.module-card.admin-locked {
+  opacity: 0.55;
+  cursor: default;
+  border-color: var(--border);
+  filter: grayscale(0.3);
+}
+.module-card.admin-locked .module-card-action {
+  background: var(--s3);
+  color: var(--t3);
+  cursor: not-allowed;
+}
+.module-card.admin-locked .module-card-action:hover { opacity: 1; }
+.module-card-admin-lock {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.75rem;
+  color: var(--t3);
+  padding: 10px 0 4px;
+}
+.module-card-lock-badge {
+  margin-left: auto;
+  background: var(--s3);
+  color: var(--t3);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 20px;
+}

@@ -30,6 +30,18 @@
 </head>
 <body>
 
+  <!-- Pending Approval Screen -->
+  <div id="pending-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:200;align-items:center;justify-content:center;">
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:40px;max-width:400px;width:100%;text-align:center;">
+      <div style="width:48px;height:48px;border-radius:50%;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 3v4M11 15v2M5 11H3M19 11h-2M7.05 7.05L5.64 5.64M16.36 16.36l-1.41-1.41M7.05 14.95l-1.41 1.41M16.36 5.64l-1.41 1.41" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </div>
+      <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:8px;color:var(--t1)">Pending Admin Approval</h2>
+      <p style="font-size:0.85rem;color:var(--t2);line-height:1.6;margin-bottom:24px;">Your account has been created. An admin needs to approve your access before you can use the platform.</p>
+      <button onclick="window.V1Auth.signOut()" style="background:transparent;border:1px solid var(--border);color:var(--t2);padding:8px 20px;border-radius:6px;font-family:inherit;font-size:0.85rem;cursor:pointer;">Sign Out</button>
+    </div>
+  </div>
+
   <!-- Auth Wall -->
   <div id="auth-wall" class="auth-wall">
     <div class="auth-card">
@@ -467,7 +479,15 @@
           if (mode === "signin") {
             await window.V1Auth.signIn(emailEl.value.trim(), passEl.value);
           } else {
-            await window.V1Auth.signUp(emailEl.value.trim(), passEl.value);
+            const result = await window.V1Auth.signUp(emailEl.value.trim(), passEl.value);
+            // If no session auto-created (email confirmation required), show message
+            if (!result.session) {
+              showError("Account created — awaiting admin approval. You can sign in once approved.");
+              submitBtn.disabled = false;
+              submitBtn.textContent = "Create Account";
+              return;
+            }
+            // If session created, onAuthStateChange handles showing pending screen
           }
         } catch (err) {
           showError(err.message || "Authentication failed. Please try again.");

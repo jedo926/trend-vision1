@@ -2,6 +2,21 @@
 
 ---
 
+## 2026-06-29 — User approval + per-module access control
+
+**Prompt:** for any new users they should be approved through the admin panel also i want a dropdown menu for each user so i can check a box and give them or restrict access to modules and if they try to go to a module tell them to ask an admin but let them go and create an account but by default they can only access the first 3 modules
+
+**What was done:**
+- `main.py` — Added `DEFAULT_MODULES = ["intro","getting-started","dashboards"]`. Added `_upsert_profile()` helper. Added `GET /me/profile` (auto-creates profile on first visit; admins always get approved+all-access). Updated `GET /admin/users` to join with `user_profiles` table and include `approved`, `allowed_modules`, `is_admin` fields. Added `POST /admin/users/{id}/approve`, `DELETE /admin/users/{id}/approve`, `PUT /admin/users/{id}/modules`, `GET /admin/setup-profiles` endpoints. Delete endpoint now also cleans up `user_profiles`.
+- `js/auth.js` — Rewrote to fetch `/me/profile` after every session change. If `approved=false`, shows `#pending-screen` instead of app. Admins bypass check.
+- `index.html` — Added `#pending-screen` div (pending approval message + sign out button). Updated signup form to show "awaiting admin approval" message when Supabase requires email confirmation.
+- `js/app.js` — Added `isModuleAllowed(moduleId)` global function checking `window.V1Profile`. Integrated into: sidebar lesson row rendering (admin-lock class + lock icon), sidebar click handler, progress dropdown click handler, welcome screen module cards (greyed lock state + "Contact admin" message). Updated `showBadgeToast` to handle `"admin-locked"` case.
+- `css/style.css` — Added styles for `.sidebar-lesson-row.admin-locked`, `.module-card.admin-locked`, `.module-card-admin-lock`, `.module-card-lock-badge`.
+- `admin.html` — Users table now shows Status badge (Admin/Approved/Pending), Approve/Revoke button per user, Manage Modules button. Added module access modal with per-module checkboxes and save. Added Setup button showing SQL for `user_profiles` table creation.
+- **Supabase table required:** Run SQL from admin panel "Setup" button in Users section once.
+
+---
+
 ## 2026-06-29 — Relax guardrails + fix agent lesson referrals
 
 **Prompt:** the guardrails are way too strict and the lesson referrals are inaccurate fix that please for the agent

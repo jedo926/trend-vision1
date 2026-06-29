@@ -54,6 +54,7 @@ DOCLING_URL = os.environ.get("DOCLING_URL", "").rstrip("/")
 openai_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "abdulmajeedtayyar92@gmail.com").split(",")}
+DEFAULT_MODULES = ["intro", "getting-started", "dashboards"]
 
 SYSTEM_PROMPT = """You are a helpful learning assistant for the Trend Micro Vision One training platform. Answer every question the user asks — about Vision One, cybersecurity, IT, or anything related to what this platform teaches. Be helpful first, always.
 
@@ -175,6 +176,17 @@ def verify_admin(user=Depends(verify_token)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
+def _upsert_profile(user_id: str, update: dict) -> dict:
+    """Fetch existing profile, merge update fields, upsert."""
+    try:
+        res = supabase_client.table("user_profiles").select("*").eq("user_id", user_id).execute()
+        base = res.data[0] if res.data else {"user_id": user_id, "approved": False, "allowed_modules": DEFAULT_MODULES}
+    except Exception:
+        base = {"user_id": user_id, "approved": False, "allowed_modules": DEFAULT_MODULES}
+    merged = {**base, **update}
+    supabase_client.table("user_profiles").upsert(merged).execute()
+    return merged
+
 # ── Helpers ───────────────────────────────────────────────────
 def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str]:
     words = text.split()
@@ -277,17 +289,80 @@ def admin_health(user=Depends(verify_admin)):
 
 @app.get("/admin/users")
 def list_users(user=Depends(verify_admin)):
-    res = supabase_client.auth.admin.list_users()
-    users = [
-        {"id": u.id, "email": u.email, "created_at": str(u.created_at), "last_sign_in": str(u.last_sign_in_at)}
-        for u in res
-    ]
+    auth_users = supabase_client.auth.admin.list_users()
+    try:
+        profile_res = supabase_client.table("user_profiles").select("*").execute()
+        profiles = {p["user_id"]: p for p in (profile_res.data or [])}
+    except Exception:
+        profiles = {}
+    users = []
+    for u in auth_users:
+        profile = profiles.get(str(u.id), {})
+        is_adm = (u.email or "").lower() in ADMIN_EMAILS
+        users.append({
+            "id": u.id,
+            "email": u.email,
+            "created_at": str(u.created_at),
+            "last_sign_in": str(u.last_sign_in_at),
+            "approved": True if is_adm else profile.get("approved", False),
+            "allowed_modules": None if is_adm else profile.get("allowed_modules", DEFAULT_MODULES),
+            "is_admin": is_adm,
+        })
     return {"users": users, "total": len(users)}
 
 @app.delete("/admin/users/{user_id}")
 def delete_user(user_id: str, admin=Depends(verify_admin)):
     supabase_client.auth.admin.delete_user(user_id)
+    try:
+        supabase_client.table("user_profiles").delete().eq("user_id", user_id).execute()
+    except Exception:
+        pass
     return {"deleted": user_id}
+
+@app.get("/me/profile")
+def get_my_profile(user=Depends(verify_token)):
+    is_adm = (user.email or "").lower() in ADMIN_EMAILS
+    if is_adm:
+        return {"user_id": str(user.id), "approved": True, "allowed_modules": None, "is_admin": True}
+    try:
+        res = supabase_client.table("user_profiles").select("*").eq("user_id", str(user.id)).execute()
+        if res.data:
+            return {**res.data[0], "is_admin": False}
+    except Exception:
+        pass
+    # First visit — create default profile
+    profile = {"user_id": str(user.id), "approved": False, "allowed_modules": DEFAULT_MODULES}
+    try:
+        supabase_client.table("user_profiles").insert(profile).execute()
+    except Exception:
+        pass
+    return {**profile, "is_admin": False}
+
+@app.post("/admin/users/{user_id}/approve")
+def approve_user(user_id: str, admin=Depends(verify_admin)):
+    _upsert_profile(user_id, {"approved": True})
+    return {"approved": True}
+
+@app.delete("/admin/users/{user_id}/approve")
+def revoke_approval(user_id: str, admin=Depends(verify_admin)):
+    _upsert_profile(user_id, {"approved": False})
+    return {"approved": False}
+
+@app.put("/admin/users/{user_id}/modules")
+def set_user_modules(user_id: str, body: dict, admin=Depends(verify_admin)):
+    modules = body.get("modules", DEFAULT_MODULES)
+    _upsert_profile(user_id, {"allowed_modules": modules})
+    return {"allowed_modules": modules}
+
+@app.get("/admin/setup-profiles")
+def setup_profiles_sql(admin=Depends(verify_admin)):
+    sql = """CREATE TABLE IF NOT EXISTS user_profiles (
+  user_id UUID PRIMARY KEY,
+  approved BOOLEAN DEFAULT FALSE,
+  allowed_modules TEXT[] DEFAULT ARRAY['intro','getting-started','dashboards'],
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);"""
+    return {"sql": sql}
 
 @app.get("/admin/documents")
 def list_documents(user=Depends(verify_admin)):

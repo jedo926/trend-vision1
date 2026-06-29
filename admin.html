@@ -217,14 +217,37 @@
     <div class="card">
       <div class="card-header">
         <span class="card-title">Users</span>
-        <button class="btn btn-outline btn-sm" id="refresh-users-btn">Refresh</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" id="setup-profiles-btn" style="background:var(--s3);color:var(--t2)">Setup</button>
+          <button class="btn btn-outline btn-sm" id="refresh-users-btn">Refresh</button>
+        </div>
       </div>
       <div class="card-body" style="padding:0">
         <div class="table-wrap">
           <table id="users-table">
-            <thead><tr><th>Email</th><th>Created</th><th>Last Sign In</th><th>ID</th><th></th></tr></thead>
-            <tbody id="users-tbody"><tr class="empty-row"><td colspan="5">Loading...</td></tr></tbody>
+            <thead><tr><th>Email</th><th>Status</th><th>Module Access</th><th>Created</th><th>ID</th><th></th></tr></thead>
+            <tbody id="users-tbody"><tr class="empty-row"><td colspan="6">Loading...</td></tr></tbody>
           </table>
+        </div>
+        <div id="profiles-sql-block" style="display:none;padding:16px 20px">
+          <div style="font-size:.78rem;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Run this SQL in the Supabase SQL Editor once:</div>
+          <pre id="profiles-sql-text" style="background:var(--s2);border:1px solid var(--s3);padding:12px;border-radius:6px;font-size:.75rem;color:var(--t1);overflow-x:auto;white-space:pre"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Module Access Modal -->
+    <div id="module-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;">
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;width:420px;max-width:95vw;max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <span style="font-weight:700;font-size:.95rem">Module Access</span>
+          <button onclick="closeModuleModal()" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:1.2rem;line-height:1">&times;</button>
+        </div>
+        <p id="modal-user-email" style="font-size:.8rem;color:var(--t2);margin-bottom:16px"></p>
+        <div id="module-checkboxes" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-outline btn-sm" onclick="closeModuleModal()">Cancel</button>
+          <button class="btn btn-primary btn-sm" id="save-modules-btn" onclick="saveModules()">Save Access</button>
         </div>
       </div>
     </div>
@@ -341,28 +364,70 @@
   document.getElementById("refresh-health-btn").addEventListener("click", loadHealth);
 
   // ── Users ──
+  const ALL_MODULES = window.V1_MODULES ? window.V1_MODULES.map(m => ({ id: m.id, title: m.title })) : [];
+
   async function loadUsers() {
     const tbody = document.getElementById("users-tbody");
     try {
       const data = await api("/admin/users");
       document.getElementById("h-users").textContent = data.total;
       if (!data.users.length) {
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No users found</td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No users found</td></tr>`;
         return;
       }
-      tbody.innerHTML = data.users.map(u => `
-        <tr>
+      tbody.innerHTML = data.users.map(u => {
+        const isAdm = u.is_admin;
+        const approved = u.approved;
+        const mods = u.allowed_modules;
+        const statusBadge = isAdm
+          ? `<span style="background:rgba(214,0,28,.15);color:var(--accent);font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px">Admin</span>`
+          : approved
+            ? `<span style="background:rgba(63,185,80,.15);color:#3fb950;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px">Approved</span>`
+            : `<span style="background:rgba(227,179,65,.15);color:var(--yellow);font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px">Pending</span>`;
+        const approveBtn = isAdm ? '' : approved
+          ? `<button class="btn btn-sm" style="background:var(--s3);color:var(--t2)" onclick="toggleApproval('${u.id}',false,'${esc(u.email)}')">Revoke</button>`
+          : `<button class="btn btn-sm" style="background:#3fb950;color:#000" onclick="toggleApproval('${u.id}',true,'${esc(u.email)}')">Approve</button>`;
+        const modCount = mods === null ? 'All' : (mods || []).length;
+        const modBtn = isAdm ? '<span style="color:var(--t3);font-size:.8rem">All</span>'
+          : `<button class="btn btn-outline btn-sm" onclick="openModuleModal('${u.id}','${esc(u.email)}',${JSON.stringify(mods||[]).replace(/"/g,'&quot;')})">Manage (${modCount})</button>`;
+        return `<tr>
           <td>${esc(u.email)}</td>
+          <td>${statusBadge} ${approveBtn}</td>
+          <td>${modBtn}</td>
           <td class="mono">${fmtDate(u.created_at)}</td>
-          <td class="mono">${fmtDate(u.last_sign_in)}</td>
           <td class="mono">${u.id.slice(0,8)}…</td>
           <td><button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${esc(u.email)}')">Delete</button></td>
-        </tr>`).join("");
+        </tr>`;
+      }).join("");
     } catch (e) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Error: ${esc(e.message)}</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Error: ${esc(e.message)}</td></tr>`;
     }
   }
   document.getElementById("refresh-users-btn").addEventListener("click", loadUsers);
+
+  // Setup profiles SQL
+  document.getElementById("setup-profiles-btn").addEventListener("click", async () => {
+    const block = document.getElementById("profiles-sql-block");
+    if (block.style.display !== "none") { block.style.display = "none"; return; }
+    try {
+      const data = await api("/admin/setup-profiles");
+      document.getElementById("profiles-sql-text").textContent = data.sql;
+      block.style.display = "block";
+    } catch (e) { alert("Error: " + e.message); }
+  });
+
+  window.toggleApproval = async (id, approve, email) => {
+    const action = approve ? "Approve" : "Revoke approval for";
+    if (!confirm(`${action} ${email}?`)) return;
+    try {
+      if (approve) {
+        await api(`/admin/users/${id}/approve`, { method: "POST" });
+      } else {
+        await api(`/admin/users/${id}/approve`, { method: "DELETE" });
+      }
+      loadUsers();
+    } catch (e) { alert("Error: " + e.message); }
+  };
 
   window.deleteUser = async (id, email) => {
     if (!confirm(`Delete user ${email}? This is permanent.`)) return;
@@ -371,6 +436,54 @@
       loadUsers();
     } catch (e) { alert("Error: " + e.message); }
   };
+
+  // ── Module access modal ──
+  let _modalUserId = null;
+
+  window.openModuleModal = (userId, email, allowedModules) => {
+    _modalUserId = userId;
+    document.getElementById("modal-user-email").textContent = email;
+    const mods = Array.isArray(allowedModules) ? allowedModules : [];
+    const container = document.getElementById("module-checkboxes");
+    container.innerHTML = ALL_MODULES.map(m => `
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:5px 0;border-bottom:1px solid var(--border)">
+        <input type="checkbox" value="${esc(m.id)}" ${mods.includes(m.id) ? "checked" : ""}
+          style="width:15px;height:15px;accent-color:var(--accent)">
+        <span style="font-size:.85rem">${esc(m.title)}</span>
+      </label>`).join("");
+    document.getElementById("module-modal").style.display = "flex";
+  };
+
+  window.closeModuleModal = () => {
+    document.getElementById("module-modal").style.display = "none";
+    _modalUserId = null;
+  };
+
+  window.saveModules = async () => {
+    if (!_modalUserId) return;
+    const checks = document.querySelectorAll("#module-checkboxes input[type=checkbox]");
+    const modules = Array.from(checks).filter(c => c.checked).map(c => c.value);
+    const btn = document.getElementById("save-modules-btn");
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+    try {
+      await api(`/admin/users/${_modalUserId}/modules`, {
+        method: "PUT",
+        body: JSON.stringify({ modules }),
+      });
+      closeModuleModal();
+      loadUsers();
+    } catch (e) {
+      alert("Error: " + e.message);
+      btn.disabled = false;
+      btn.textContent = "Save Access";
+    }
+  };
+
+  // Close modal on backdrop click
+  document.getElementById("module-modal").addEventListener("click", e => {
+    if (e.target === document.getElementById("module-modal")) closeModuleModal();
+  });
 
   // ── Documents ──
   async function loadDocs() {
