@@ -2,6 +2,18 @@
 
 ---
 
+## 2026-06-29 — Remove account approval gate, keep only module access control
+
+**Prompt:** the account when someone goes and tries to create it automatically just let them in the approvals should only be for the modules
+
+**What was done:**
+- `main.py` — Changed profile creation default from `approved: False` to `approved: True`. Both `GET /me/profile` first-visit creation and `_upsert_profile` fallback now default to approved. New users are immediately let in.
+- `js/auth.js` — Removed all pending screen logic. `_handleSession` now always calls `hideAuthWall()` after fetching profile. No more approval gate.
+- `index.html` — Removed entire `#pending-screen` div (profile form, waiting, declined states). Signup message now says "check your email to confirm" instead of "awaiting approval".
+- `admin.html` — Removed Status, Name/Role, Approve/Decline columns from users table. Only Module Access remains as the per-user control.
+
+---
+
 ## 2026-06-29 — Access request form + name/role profile + decline flow
 
 **Prompt:** add a send request and prompt them to add their name and their role and then that info shows up in my admin panel and I'll accept or decline

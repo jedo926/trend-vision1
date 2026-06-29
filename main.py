@@ -180,9 +180,9 @@ def _upsert_profile(user_id: str, update: dict) -> dict:
     """Fetch existing profile, merge update fields, upsert."""
     try:
         res = supabase_client.table("user_profiles").select("*").eq("user_id", user_id).execute()
-        base = res.data[0] if res.data else {"user_id": user_id, "approved": False, "allowed_modules": DEFAULT_MODULES}
+        base = res.data[0] if res.data else {"user_id": user_id, "approved": True, "allowed_modules": DEFAULT_MODULES}
     except Exception:
-        base = {"user_id": user_id, "approved": False, "allowed_modules": DEFAULT_MODULES}
+        base = {"user_id": user_id, "approved": True, "allowed_modules": DEFAULT_MODULES}
     merged = {**base, **update}
     supabase_client.table("user_profiles").upsert(merged).execute()
     return merged
@@ -337,8 +337,8 @@ def get_my_profile(user=Depends(verify_token)):
             return {**res.data[0], "is_admin": False}
     except Exception:
         pass
-    # First visit — create default profile
-    profile = {"user_id": str(user.id), "approved": False, "declined": False, "allowed_modules": DEFAULT_MODULES}
+    # First visit — create default profile (auto-approved, module access controls access)
+    profile = {"user_id": str(user.id), "approved": True, "declined": False, "allowed_modules": DEFAULT_MODULES}
     try:
         supabase_client.table("user_profiles").insert(profile).execute()
     except Exception:

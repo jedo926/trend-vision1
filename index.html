@@ -30,57 +30,6 @@
 </head>
 <body>
 
-  <!-- Pending / Profile Completion Screen -->
-  <div id="pending-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:200;align-items:center;justify-content:center;">
-
-    <!-- Step 1: Profile form (shown when name not yet submitted) -->
-    <div id="pending-profile-form" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:36px;max-width:420px;width:100%;">
-      <div style="margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <svg width="20" height="20" viewBox="0 0 28 28" fill="none"><path d="M14 1.5L1.5 12.5H6.5V24.5H11V16.5H17V24.5H21.5V12.5H26.5L14 1.5Z" fill="var(--accent)" stroke="var(--accent)" stroke-width="0.5" stroke-linejoin="round"/></svg>
-          <span style="font-weight:700;font-size:0.95rem">Vision One Training</span>
-        </div>
-        <h2 style="font-size:1.1rem;font-weight:700;color:var(--t1);margin-bottom:6px">Complete your profile</h2>
-        <p style="font-size:0.82rem;color:var(--t2);line-height:1.5">Tell us a bit about yourself so we can set up your access.</p>
-      </div>
-      <div style="margin-bottom:14px">
-        <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--t2);margin-bottom:5px">Full Name</label>
-        <input id="profile-name-input" type="text" placeholder="Jane Smith" style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--t1);font-family:inherit;font-size:0.9rem;outline:none;">
-      </div>
-      <div style="margin-bottom:20px">
-        <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--t2);margin-bottom:5px">Your Role</label>
-        <input id="profile-role-input" type="text" placeholder="e.g. Security Analyst, SOC Engineer" style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--t1);font-family:inherit;font-size:0.9rem;outline:none;">
-      </div>
-      <div id="profile-form-error" style="color:var(--red);font-size:0.8rem;margin-bottom:10px;display:none"></div>
-      <button id="profile-submit-btn" onclick="window._submitProfile()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:10px;font-family:inherit;font-size:0.88rem;font-weight:600;cursor:pointer;">Send Access Request</button>
-      <div style="margin-top:14px;text-align:center">
-        <button onclick="window.V1Auth.signOut()" style="background:none;border:none;color:var(--t3);font-family:inherit;font-size:0.78rem;cursor:pointer;">Sign out</button>
-      </div>
-    </div>
-
-    <!-- Step 2: Waiting for approval -->
-    <div id="pending-waiting" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:40px;max-width:400px;width:100%;text-align:center;">
-      <div style="width:48px;height:48px;border-radius:50%;background:rgba(227,179,65,.15);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8.5" stroke="#e3b341" stroke-width="1.6"/><path d="M11 7v4.5l2.5 2.5" stroke="#e3b341" stroke-width="1.6" stroke-linecap="round"/></svg>
-      </div>
-      <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:8px;color:var(--t1)">Request Sent</h2>
-      <p style="font-size:0.85rem;color:var(--t2);line-height:1.6;margin-bottom:8px;">Your access request has been sent to the admin. You'll be able to sign in once it's approved.</p>
-      <p id="pending-user-name" style="font-size:0.8rem;color:var(--t3);margin-bottom:24px"></p>
-      <button onclick="window.V1Auth.signOut()" style="background:transparent;border:1px solid var(--border);color:var(--t2);padding:8px 20px;border-radius:6px;font-family:inherit;font-size:0.85rem;cursor:pointer;">Sign Out</button>
-    </div>
-
-    <!-- Step 3: Declined -->
-    <div id="pending-declined" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:40px;max-width:400px;width:100%;text-align:center;">
-      <div style="width:48px;height:48px;border-radius:50%;background:rgba(248,81,73,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8.5" stroke="var(--red)" stroke-width="1.6"/><path d="M8 8l6 6M14 8l-6 6" stroke="var(--red)" stroke-width="1.6" stroke-linecap="round"/></svg>
-      </div>
-      <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:8px;color:var(--t1)">Access Not Approved</h2>
-      <p style="font-size:0.85rem;color:var(--t2);line-height:1.6;margin-bottom:24px;">Your access request was not approved. Please contact your administrator for more information.</p>
-      <button onclick="window.V1Auth.signOut()" style="background:transparent;border:1px solid var(--border);color:var(--t2);padding:8px 20px;border-radius:6px;font-family:inherit;font-size:0.85rem;cursor:pointer;">Sign Out</button>
-    </div>
-
-  </div>
-
   <!-- Auth Wall -->
   <div id="auth-wall" class="auth-wall">
     <div class="auth-card">
@@ -519,14 +468,13 @@
             await window.V1Auth.signIn(emailEl.value.trim(), passEl.value);
           } else {
             const result = await window.V1Auth.signUp(emailEl.value.trim(), passEl.value);
-            // If no session auto-created (email confirmation required), show message
+            // If email confirmation is required, session won't be set yet
             if (!result.session) {
-              showError("Account created — awaiting admin approval. You can sign in once approved.");
+              showError("Account created! Check your email to confirm, then sign in.");
               submitBtn.disabled = false;
               submitBtn.textContent = "Create Account";
               return;
             }
-            // If session created, onAuthStateChange handles showing pending screen
           }
         } catch (err) {
           showError(err.message || "Authentication failed. Please try again.");

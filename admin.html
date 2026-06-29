@@ -225,8 +225,8 @@
       <div class="card-body" style="padding:0">
         <div class="table-wrap">
           <table id="users-table">
-            <thead><tr><th>Email</th><th>Name / Role</th><th>Status</th><th>Module Access</th><th>Created</th><th>ID</th><th></th></tr></thead>
-            <tbody id="users-tbody"><tr class="empty-row"><td colspan="7">Loading...</td></tr></tbody>
+            <thead><tr><th>Email</th><th>Module Access</th><th>Created</th><th>Last Sign In</th><th>ID</th><th></th></tr></thead>
+            <tbody id="users-tbody"><tr class="empty-row"><td colspan="6">Loading...</td></tr></tbody>
           </table>
         </div>
         <div id="profiles-sql-block" style="display:none;padding:16px 20px">
@@ -372,46 +372,21 @@
       const data = await api("/admin/users");
       document.getElementById("h-users").textContent = data.total;
       if (!data.users.length) {
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No users found</td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No users found</td></tr>`;
         return;
       }
       tbody.innerHTML = data.users.map(u => {
         const isAdm = u.is_admin;
-        const approved = u.approved;
-        const declined = u.declined;
         const mods = u.allowed_modules;
-
-        const nameCell = isAdm
-          ? `<span style="color:var(--t3);font-size:.8rem">—</span>`
-          : (u.name
-            ? `<div style="font-size:.85rem;font-weight:500">${esc(u.name)}</div><div style="font-size:.75rem;color:var(--t3)">${esc(u.role||'')}</div>`
-            : `<span style="color:var(--t3);font-size:.78rem;font-style:italic">Not submitted</span>`);
-
-        let statusBadge, actionBtns;
-        if (isAdm) {
-          statusBadge = `<span style="background:rgba(214,0,28,.15);color:var(--accent);font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px">Admin</span>`;
-          actionBtns = '';
-        } else if (declined) {
-          statusBadge = `<span style="background:rgba(248,81,73,.1);color:var(--red);font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px">Declined</span>`;
-          actionBtns = `<button class="btn btn-sm" style="background:#3fb950;color:#000" onclick="toggleApproval('${u.id}',true,'${esc(u.email)}')">Approve</button>`;
-        } else if (approved) {
-          statusBadge = `<span style="background:rgba(63,185,80,.15);color:#3fb950;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px">Approved</span>`;
-          actionBtns = `<button class="btn btn-sm" style="background:var(--s3);color:var(--t2)" onclick="toggleApproval('${u.id}',false,'${esc(u.email)}')">Revoke</button>`;
-        } else {
-          statusBadge = `<span style="background:rgba(227,179,65,.15);color:var(--yellow);font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px">Pending</span>`;
-          actionBtns = `<button class="btn btn-sm" style="background:#3fb950;color:#000;margin-right:4px" onclick="toggleApproval('${u.id}',true,'${esc(u.email)}')">Approve</button><button class="btn btn-sm" style="background:var(--red);color:#fff" onclick="declineUser('${u.id}','${esc(u.email)}')">Decline</button>`;
-        }
-
         const modCount = mods === null ? 'All' : (mods || []).length;
-        const modBtn = isAdm ? '<span style="color:var(--t3);font-size:.8rem">All</span>'
+        const modCell = isAdm
+          ? `<span style="color:var(--t3);font-size:.8rem">All (Admin)</span>`
           : `<button class="btn btn-outline btn-sm" onclick="openModuleModal('${u.id}','${esc(u.email)}',${JSON.stringify(mods||[]).replace(/"/g,'&quot;')})">Manage (${modCount})</button>`;
-
         return `<tr>
           <td>${esc(u.email)}</td>
-          <td>${nameCell}</td>
-          <td style="white-space:nowrap">${statusBadge}<br><div style="margin-top:4px">${actionBtns}</div></td>
-          <td>${modBtn}</td>
+          <td>${modCell}</td>
           <td class="mono">${fmtDate(u.created_at)}</td>
+          <td class="mono">${fmtDate(u.last_sign_in)}</td>
           <td class="mono">${u.id.slice(0,8)}…</td>
           <td><button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${esc(u.email)}')">Delete</button></td>
         </tr>`;
