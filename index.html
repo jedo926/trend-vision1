@@ -53,6 +53,16 @@
           <label for="auth-password">Password</label>
           <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" required>
         </div>
+        <div id="signup-extra-fields" style="display:none">
+          <div class="auth-field">
+            <label for="auth-name">Full Name</label>
+            <input type="text" id="auth-name" placeholder="Jane Smith" autocomplete="name" maxlength="120">
+          </div>
+          <div class="auth-field">
+            <label for="auth-role">Role</label>
+            <input type="text" id="auth-role" placeholder="e.g. SOC Analyst, Security Engineer" autocomplete="organization-title" maxlength="120">
+          </div>
+        </div>
         <button type="submit" id="auth-submit-btn" class="auth-submit-btn">Sign In</button>
       </form>
       <div class="auth-toggle">
@@ -440,13 +450,16 @@
       window.V1Auth.init();
 
       let mode = "signin"; // or "signup"
-      const form       = document.getElementById("auth-form");
-      const emailEl    = document.getElementById("auth-email");
-      const passEl     = document.getElementById("auth-password");
-      const submitBtn  = document.getElementById("auth-submit-btn");
-      const toggleBtn  = document.getElementById("auth-toggle-btn");
-      const toggleMsg  = document.getElementById("auth-toggle-msg");
-      const errorEl    = document.getElementById("auth-error");
+      const form        = document.getElementById("auth-form");
+      const emailEl     = document.getElementById("auth-email");
+      const passEl      = document.getElementById("auth-password");
+      const nameEl      = document.getElementById("auth-name");
+      const roleEl      = document.getElementById("auth-role");
+      const extraFields = document.getElementById("signup-extra-fields");
+      const submitBtn   = document.getElementById("auth-submit-btn");
+      const toggleBtn   = document.getElementById("auth-toggle-btn");
+      const toggleMsg   = document.getElementById("auth-toggle-msg");
+      const errorEl     = document.getElementById("auth-error");
 
       function showError(msg) {
         errorEl.textContent = msg;
@@ -456,6 +469,7 @@
 
       toggleBtn.addEventListener("click", () => {
         mode = mode === "signin" ? "signup" : "signin";
+        extraFields.style.display = mode === "signup" ? "block" : "none";
         submitBtn.textContent = mode === "signin" ? "Sign In" : "Create Account";
         toggleMsg.textContent = mode === "signin" ? "Don't have an account?" : "Already have an account?";
         toggleBtn.textContent = mode === "signin" ? "Sign Up" : "Sign In";
@@ -478,6 +492,22 @@
               submitBtn.disabled = false;
               submitBtn.textContent = "Create Account";
               return;
+            }
+            // Save name and role to profile immediately
+            const name = nameEl.value.trim();
+            const role = roleEl.value.trim();
+            if (name || role) {
+              try {
+                const API = (window.CHAT_API_URL || "").replace(/\/$/, "");
+                await fetch(API + "/me/profile", {
+                  method: "PUT",
+                  headers: {
+                    "Authorization": "Bearer " + result.session.access_token,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ name: name || "", role: role || "" }),
+                });
+              } catch (_) {}
             }
           }
         } catch (err) {

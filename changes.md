@@ -2,6 +2,18 @@
 
 ---
 
+## 2026-06-29 — Add name + role to signup form
+
+**Prompt:** "also into the sign up flow add a section for name and role thats important for manageing people"
+
+**What was done:**
+- Added Full Name and Role fields to the auth card in `index.html` (hidden during sign-in, visible when user switches to sign-up mode)
+- On successful signup (auto-confirmed session), immediately POSTs name + role to `PUT /me/profile` using the fresh session token
+- Fields are standard text inputs with `maxlength="120"`, matching the backend's `ProfileUpdateRequest` validation
+- Admin panel already shows name and role columns from `user_profiles`, so no backend changes needed
+
+---
+
 ## 2026-06-29 — Hardlock all module access paths + "Request Access" feature
 
 **Prompt:** "its not locked from the progress bar nav also the modules that are unlocked in the dashboard are locked in the syllabus sidebar so make sure its all connected and working test it with test users and real edge cases and also make sure they won't be able to access it through the ai lesson recommendation it should be hardlocked until the admin approves on the dashboard and a button that lets the user ask for access to a certain module and that request should be sent to the admin panel"
