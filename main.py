@@ -48,16 +48,22 @@ openai_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "abdulmajeedtayyar92@gmail.com").split(",")}
 
-SYSTEM_PROMPT = """You are a concise, knowledgeable assistant for the Trend Micro Vision One training platform.
+SYSTEM_PROMPT = """You are a focused learning assistant ONLY for the Trend Micro Vision One training platform.
 
-RESPONSE RULES — follow these strictly:
-- Keep answers SHORT. 2-4 sentences for simple questions. Use bullet points for steps or lists.
-- Write for a learner, not an engineer. Plain language, no unnecessary jargon.
-- Use **bold** for key terms. Use a dash list (- item) for steps or multiple points. Never write long paragraphs.
-- Always call your search tool for any technical or platform-specific question before answering.
-- If the docs don't cover something, say so in one sentence and point to the closest relevant topic.
-- Do NOT repeat the question back. Do NOT pad with filler phrases like "Great question!" or "Certainly!".
-- End with one short actionable tip when relevant.
+SCOPE — you may ONLY answer questions about:
+- Trend Micro Vision One features, modules, and workflows
+- Cybersecurity concepts covered in the Vision One curriculum (XDR, EDR, alerts, risk management, endpoint, email, cloud, network security)
+- How to navigate or use this training platform
+
+HARD REFUSAL — if the question is about ANYTHING outside the above scope, respond with exactly:
+"I'm only able to help with Trend Micro Vision One training topics. Try asking about a lesson, a platform feature, or a security concept covered in the course."
+Do NOT answer. Do NOT make exceptions. This includes: coding tasks, general programming, other software, personal advice, creative writing, math, games, or any unrelated topic.
+
+RESPONSE RULES (for allowed questions):
+- Keep answers SHORT: 2-4 sentences for simple questions, bullet points for steps.
+- Plain language. Use **bold** for key terms. Use - bullet lists for multiple points.
+- Always call your search tool before answering any technical question.
+- No filler phrases ("Great question!", "Certainly!"). No repeating the question back.
 """
 
 # ── Auth ──────────────────────────────────────────────────────
@@ -90,6 +96,43 @@ def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str
         i += chunk_size - overlap
     return chunks
 
+# ── Topic guard ───────────────────────────────────────────────
+_ALLOWED_KEYWORDS = {
+    "vision one","trend micro","xdr","edr","siem","soar","endpoint","alert","workbench",
+    "playbook","policy","risk","score","telemetry","threat","malware","ransomware",
+    "phishing","email","cloud","network","identity","soc","incident","response",
+    "detection","investigation","remediation","sensor","agent","connector","integration",
+    "dashboard","module","lesson","course","training","platform","security","cyber",
+    "attack","log","event","rule","filter","search","query","ticket","case","forensic",
+    "behaviour","behavior","artifact","indicator","ioc","mitre","att&ck","zero trust",
+    "privilege","access","authentication","mfa","firewall","proxy","sandbox","deception",
+}
+_BLOCKED_PATTERNS = [
+    "python","javascript","java","c++","c#","golang","rust","ruby","php","code","program",
+    "game","chess","sudoku","rock paper","tic tac","script","function","class","def ","import ",
+    "recipe","cook","movie","song","joke","poem","story","essay","math","calculus","algebra",
+    "homework","write me","build me","create me","make me","generate me",
+]
+
+def _is_off_topic(question: str) -> bool:
+    q = question.lower()
+    # Block if explicitly off-topic pattern found
+    if any(p in q for p in _BLOCKED_PATTERNS):
+        return True
+    # Allow if any Vision One keyword found
+    if any(k in q for k in _ALLOWED_KEYWORDS):
+        return False
+    # Short generic questions (under 6 words) are likely fine — let the model decide
+    if len(q.split()) < 6:
+        return False
+    # Longer questions with no recognisable keyword — block
+    return True
+
+_OFF_TOPIC_REPLY = (
+    "I'm only able to help with Trend Micro Vision One training topics. "
+    "Try asking about a lesson, a platform feature, or a security concept covered in the course."
+)
+
 # ── Schema ────────────────────────────────────────────────────
 class QueryRequest(BaseModel):
     question: str
@@ -106,6 +149,9 @@ def ask_agent(
     body: QueryRequest,
     user=Depends(verify_token),
 ):
+    if _is_off_topic(body.question):
+        return {"answer": _OFF_TOPIC_REPLY, "sources": []}
+
     retrieved_docs = []
 
     @tool
