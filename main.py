@@ -378,6 +378,65 @@ def set_user_modules(user_id: str, body: dict, admin=Depends(verify_admin)):
     _upsert_profile(user_id, {"allowed_modules": modules})
     return {"allowed_modules": modules}
 
+@app.post("/me/access-request")
+def request_module_access(body: dict, user=Depends(verify_token)):
+    module_id = (body.get("module_id") or "").strip()[:80]
+    module_title = (body.get("module_title") or "").strip()[:120]
+    if not module_id:
+        raise HTTPException(status_code=422, detail="module_id required")
+    # Prevent duplicate pending requests for same user+module
+    try:
+        exists = supabase_client.table("access_requests") \
+            .select("id").eq("user_id", str(user.id)).eq("module_id", module_id).eq("handled", False).execute()
+        if exists.data:
+            return {"requested": True, "duplicate": True}
+        supabase_client.table("access_requests").insert({
+            "user_id": str(user.id),
+            "user_email": user.email,
+            "module_id": module_id,
+            "module_title": module_title,
+        }).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"requested": True}
+
+@app.get("/admin/access-requests")
+def list_access_requests(admin=Depends(verify_admin)):
+    try:
+        res = supabase_client.table("access_requests").select("*") \
+            .eq("handled", False).order("created_at").execute()
+        return {"requests": res.data or []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/access-requests/{req_id}/approve")
+def approve_access_request(req_id: str, admin=Depends(verify_admin)):
+    try:
+        res = supabase_client.table("access_requests").select("*").eq("id", req_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Request not found")
+        req = res.data[0]
+        # Add module to user's allowed_modules
+        profile_res = supabase_client.table("user_profiles").select("allowed_modules") \
+            .eq("user_id", req["user_id"]).execute()
+        current = profile_res.data[0]["allowed_modules"] if profile_res.data else list(DEFAULT_MODULES)
+        if current is None:
+            current = list(DEFAULT_MODULES)
+        if req["module_id"] not in current:
+            current.append(req["module_id"])
+        _upsert_profile(req["user_id"], {"allowed_modules": current})
+        supabase_client.table("access_requests").update({"handled": True}).eq("id", req_id).execute()
+        return {"approved": True, "module_id": req["module_id"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/admin/access-requests/{req_id}")
+def dismiss_access_request(req_id: str, admin=Depends(verify_admin)):
+    supabase_client.table("access_requests").update({"handled": True}).eq("id", req_id).execute()
+    return {"dismissed": True}
+
 @app.get("/admin/setup-profiles")
 def setup_profiles_sql(admin=Depends(verify_admin)):
     sql = """CREATE TABLE IF NOT EXISTS user_profiles (
@@ -393,7 +452,17 @@ def setup_profiles_sql(admin=Depends(verify_admin)):
 -- If table already exists, add the new columns:
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS name TEXT;
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS role TEXT;
-ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS declined BOOLEAN DEFAULT FALSE;"""
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS declined BOOLEAN DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS access_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  user_email TEXT,
+  module_id TEXT NOT NULL,
+  module_title TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  handled BOOLEAN DEFAULT FALSE
+);"""
     return {"sql": sql}
 
 @app.get("/admin/documents")

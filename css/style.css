@@ -3204,3 +3204,10 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
   padding: 2px 7px;
   border-radius: 20px;
 }
+
+.sidebar-module-row.mod-admin-locked { opacity: 0.45; cursor: not-allowed; }
+.sidebar-module-row.mod-admin-locked .module-chevron { color: var(--t3); }
+
+.module-card-request-btn { display: block; width: 100%; margin-top: 8px; padding: 9px 0; border-radius: 8px; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background .15s, color .15s; }
+.module-card-request-btn:hover { background: var(--accent); color: #fff; }
+.module-card-request-btn.requested, .module-card-request-btn:disabled { border-color: var(--t3); color: var(--t3); cursor: default; background: transparent; }

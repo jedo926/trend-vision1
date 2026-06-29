@@ -252,6 +252,22 @@
       </div>
     </div>
 
+    <!-- Module Access Requests -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Module Access Requests <span id="req-count-badge" style="display:none;background:var(--accent);color:#fff;font-size:.65rem;font-weight:700;padding:1px 7px;border-radius:20px;margin-left:6px"></span></span>
+        <button class="btn btn-outline btn-sm" id="refresh-requests-btn">Refresh</button>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="table-wrap">
+          <table id="requests-table">
+            <thead><tr><th>User</th><th>Module Requested</th><th>Requested</th><th></th></tr></thead>
+            <tbody id="requests-tbody"><tr class="empty-row"><td colspan="4">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- Explainer Management -->
     <div class="card">
       <div class="card-header">
@@ -345,6 +361,7 @@
     loadHealth();
     loadDocs();
     loadUsers();
+    loadAccessRequests();
     loadExplainers();
   }
 
@@ -426,6 +443,49 @@
     try {
       await api(`/admin/users/${id}/decline`, { method: "POST" });
       loadUsers();
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
+  // ── Access Requests ──
+  async function loadAccessRequests() {
+    const tbody = document.getElementById("requests-tbody");
+    const badge = document.getElementById("req-count-badge");
+    try {
+      const data = await api("/admin/access-requests");
+      const reqs = data.requests || [];
+      if (badge) { badge.textContent = reqs.length || ""; badge.style.display = reqs.length ? "inline" : "none"; }
+      if (!reqs.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="4">No pending requests</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = reqs.map(r => `<tr>
+        <td>${esc(r.user_email || r.user_id)}</td>
+        <td><strong>${esc(r.module_title || r.module_id)}</strong> <span class="mono" style="font-size:.72rem">${esc(r.module_id)}</span></td>
+        <td class="mono">${fmtDate(r.created_at)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-sm" style="background:#3fb950;color:#000;margin-right:4px" onclick="approveRequest('${r.id}','${esc(r.user_email)}','${esc(r.module_title||r.module_id)}')">Approve</button>
+          <button class="btn btn-outline btn-sm" onclick="dismissRequest('${r.id}')">Dismiss</button>
+        </td>
+      </tr>`).join("");
+    } catch (e) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="4">Error: ${esc(e.message)}</td></tr>`;
+    }
+  }
+  document.getElementById("refresh-requests-btn").addEventListener("click", loadAccessRequests);
+
+  window.approveRequest = async (id, email, moduleTitle) => {
+    if (!confirm(`Grant ${email} access to "${moduleTitle}"?`)) return;
+    try {
+      await api(`/admin/access-requests/${id}/approve`, { method: "POST" });
+      loadAccessRequests();
+      loadUsers(); // refresh module counts
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
+  window.dismissRequest = async (id) => {
+    try {
+      await api(`/admin/access-requests/${id}`, { method: "DELETE" });
+      loadAccessRequests();
     } catch (e) { alert("Error: " + e.message); }
   };
 

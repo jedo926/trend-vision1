@@ -208,13 +208,15 @@ window.V1App = {
       const modWrapper = document.createElement("div");
       modWrapper.className = "sidebar-module-wrapper";
 
+      const modAdminLocked = !isModuleAllowed(mod.id);
+
       const modRow = document.createElement("div");
-      modRow.className = "sidebar-module-row";
+      modRow.className = "sidebar-module-row" + (modAdminLocked ? " mod-admin-locked" : "");
       modRow.setAttribute("data-module-id", mod.id);
 
       const chevron = document.createElement("span");
       chevron.className = "module-chevron";
-      chevron.innerHTML = "▾";
+      chevron.innerHTML = modAdminLocked ? this.icons.lock : "▾";
 
       const titleSpan = document.createElement("span");
       titleSpan.className = "module-title";
@@ -291,6 +293,7 @@ window.V1App = {
       container.appendChild(modWrapper);
 
       modRow.addEventListener("click", () => {
+        if (modAdminLocked) { this.showBadgeToast("admin-locked"); return; }
         const collapsed = modWrapper.classList.toggle("collapsed");
         chevron.innerHTML = collapsed ? "▸" : "▾";
       });
@@ -489,7 +492,7 @@ window.V1App = {
         ${adminLocked ? `
         <div class="module-card-admin-lock">
           <svg width="16" height="16" viewBox="0 0 13 13" fill="none"><rect x="2.5" y="5.5" width="8" height="6" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 5.5V4A2.5 2.5 0 019 4v1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-          Contact your admin to unlock this module
+          Admin approval required
         </div>` : `
         <div class="module-card-progress">
           <div class="module-card-progress-bar">
@@ -506,7 +509,10 @@ window.V1App = {
           `).join("")}
           ${modLessons.length > 3 ? `<div class="module-card-lesson-item" style="color:var(--t3)">+${modLessons.length - 3} more</div>` : ''}
         </div>`}
-        <button class="module-card-action ${!adminLocked && hasStarted && pct < 100 ? 'continue' : ''}" ${adminLocked ? 'disabled' : ''}>${adminLocked ? 'Locked' : pct === 100 ? 'Review' : hasStarted ? 'Continue' : 'Start'}</button>
+        ${adminLocked
+          ? `<button class="module-card-request-btn" data-mod-id="${mod.id}" data-mod-title="${mod.title.replace(/"/g,'&quot;')}">Request Access</button>`
+          : `<button class="module-card-action ${hasStarted && pct < 100 ? 'continue' : ''}">${pct === 100 ? 'Review' : hasStarted ? 'Continue' : 'Start'}</button>`
+        }
       `;
 
       const startLesson = () => {
@@ -515,9 +521,15 @@ window.V1App = {
         if (target) this.navigateToLesson(target.id);
       };
 
-      card.addEventListener("click", startLesson);
-      card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startLesson(); } });
-      card.querySelector(".module-card-action").addEventListener("click", e => { e.stopPropagation(); startLesson(); });
+      if (adminLocked) {
+        const reqBtn = card.querySelector(".module-card-request-btn");
+        if (reqBtn) reqBtn.addEventListener("click", e => { e.stopPropagation(); window._requestModuleAccess(mod.id, mod.title, reqBtn); });
+        card.addEventListener("click", startLesson);
+      } else {
+        card.addEventListener("click", startLesson);
+        card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startLesson(); } });
+        card.querySelector(".module-card-action").addEventListener("click", e => { e.stopPropagation(); startLesson(); });
+      }
 
       grid.appendChild(card);
     });
@@ -1317,3 +1329,33 @@ window.V1App = {
 document.addEventListener("DOMContentLoaded", () => {
   window.V1App.init();
 });
+
+// Track in-session requests so button shows "Requested" immediately
+window._pendingRequests = new Set();
+
+window._requestModuleAccess = async function(moduleId, moduleTitle, btn) {
+  if (window._pendingRequests.has(moduleId)) return;
+  const token = window.V1Auth?.getToken();
+  if (!token) return;
+  const API = (window.CHAT_API_URL || "").replace(/\/$/, "");
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  try {
+    const res = await fetch(API + "/me/access-request", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ module_id: moduleId, module_title: moduleTitle }),
+    });
+    if (res.ok) {
+      window._pendingRequests.add(moduleId);
+      btn.textContent = "Request Sent";
+      btn.classList.add("requested");
+    } else {
+      btn.disabled = false;
+      btn.textContent = "Request Access";
+    }
+  } catch (_) {
+    btn.disabled = false;
+    btn.textContent = "Request Access";
+  }
+};

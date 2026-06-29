@@ -41,6 +41,9 @@ window.V1Auth = (function () {
       window.V1Profile = { approved: true, allowed_modules: null, is_admin: false };
     }
     hideAuthWall();
+    // Re-render sidebar and progress nav now that module access is known
+    window.V1App?.renderSidebar();
+    window.V1App?.renderProgressDropdown();
   }
 
   function getToken() {

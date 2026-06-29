@@ -2,6 +2,23 @@
 
 ---
 
+## 2026-06-29 — Hardlock all module access paths + "Request Access" feature
+
+**Prompt:** "its not locked from the progress bar nav also the modules that are unlocked in the dashboard are locked in the syllabus sidebar so make sure its all connected and working test it with test users and real edge cases and also make sure they won't be able to access it through the ai lesson recommendation it should be hardlocked until the admin approves on the dashboard and a button that lets the user ask for access to a certain module and that request should be sent to the admin panel"
+
+**What was done:**
+- **Fixed sidebar timing bug** (root cause of sidebar/dashboard inconsistency): `js/auth.js` now calls `window.V1App.renderSidebar()` and `window.V1App.renderProgressDropdown()` after the profile is fetched, so both re-render with the correct module access once the JWT profile is loaded — not on page init when `V1Profile` is still null.
+- **Sidebar module-row lock**: Admin-locked modules now have `mod-admin-locked` class on the module row (greyed, not-allowed cursor, lock icon in chevron); clicking a locked module row shows the admin-locked toast and returns early.
+- **Progress bar nav**: Already guarded in `navigateToLesson()` which is the single chokepoint for all navigation. Re-render after profile load ensures visual state is also correct.
+- **AI lesson recommendations**: Already routed through `navigateToLesson()` — guard blocks locked modules; no additional changes needed.
+- **"Request Access" button**: Locked module cards on the dashboard now show a "Request Access" button instead of a disabled "Locked" button. Clicking POSTs to `/me/access-request` (debounced with `window._pendingRequests` Set). Button updates to "Request Sent" on success.
+- **Backend — access requests** (`main.py`): Added `POST /me/access-request`, `GET /admin/access-requests`, `POST /admin/access-requests/{id}/approve`, `DELETE /admin/access-requests/{id}`. Duplicate pending requests for the same user+module are prevented. Approval adds the module to `allowed_modules` and marks request handled.
+- **Admin panel**: New "Module Access Requests" card with badge showing pending count. Each request shows user email, module name, date, and Approve/Dismiss buttons. Approve calls the backend and refreshes both the requests list and the users table.
+- **Setup SQL updated**: `/admin/setup-profiles` SQL now includes `CREATE TABLE IF NOT EXISTS access_requests` DDL.
+- **CSS**: Added `.sidebar-module-row.mod-admin-locked`, `.module-card-request-btn`, `.module-card-request-btn.requested`.
+
+---
+
 ## 2026-06-29 — Logout button + enforce module lock on all navigation paths
 
 **Prompt:** add a log out button and also the modules aren't actually locked I can access them through the progress bar and the dashboard
