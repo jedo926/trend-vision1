@@ -1443,6 +1443,21 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
   font-weight: 500;
 }
 
+.step-link {
+  color: #d4141c;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(212, 20, 28, 0.35);
+  text-underline-offset: 2px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  transition: opacity 0.15s;
+}
+.step-link:hover { opacity: 0.75; text-decoration-color: rgba(212, 20, 28, 0.7); }
+.step-link-icon { width: 8px; height: 8px; flex-shrink: 0; opacity: 0.7; }
+
 /* Step connector lines between nodes */
 @media (min-width: 600px) {
   .step-pipeline {

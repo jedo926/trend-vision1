@@ -2,6 +2,19 @@
 
 ---
 
+## 2026-06-29 — Console deep-links in lesson step guides
+
+**Prompt:** keep this on dev for now but i wana try linking so in guides when ever it tells them to go there and do that there should be a link or a highlighted word that has a link behind it so go through all modules find anywhere or thing that needs a link/redirect
+
+**What was done:**
+- `js/data/step-links.js` — new file. Maps 54 lessons × their navigation steps to real Vision One console URLs. Format: `{ lessonId: [{ step: N, find: "exact text", url: "https://portal.xdr.trendmicro.com/..." }] }`. Covers every module: intro, getting-started, dashboards, workbench, endpoint, email, attack-surface, search/investigations, response-actions, workflow-automation, zero-trust, threat-intelligence, reporting, cloud/network security, and AI security.
+- `js/app.js` — added `_applyStepLinks(stepText, stepIdx, lessonId)` helper. Finds each `find` substring in the step, replaces it with a `<a class="step-link" href="..." target="_blank">` that opens the correct console page in a new tab. Handles multiple links per step (e.g. a step mentioning both Workbench and Response Management) with overlap-safe position-based replacement.
+- `css/style.css` — `.step-link` style: Vision One red (#d4141c), bold, underline with low-opacity underline, inline external-link icon (SVG), hover fade. `.step-link-icon` for the 8px arrow icon.
+- `index.html` — added `<script src="js/data/step-links.js">` after `modules.js`.
+- `modules.js` untouched — plain step strings stay clean for TTS/explainer audio.
+
+---
+
 ## 2026-06-29 — Production-grade LLM Firewall
 
 **Prompt:** You are a senior AI Security Engineer and Software Architect. Implement a production-grade, defense-in-depth LLM Firewall around this application's AI capabilities.

@@ -503,6 +503,36 @@ window.V1App = {
   },
 
   // ============================================================
+  // STEP LINK RENDERER
+  // ============================================================
+  _applyStepLinks(stepText, stepIdx, lessonId) {
+    const links = (window.V1_STEP_LINKS || {})[lessonId];
+    if (!links) return stepText;
+    const forStep = links.filter(l => l.step === stepIdx);
+    if (!forStep.length) return stepText;
+
+    // Collect non-overlapping matches sorted by position
+    const matches = [];
+    for (const link of forStep) {
+      const pos = stepText.indexOf(link.find);
+      if (pos < 0) continue;
+      matches.push({ start: pos, end: pos + link.find.length, url: link.url, text: link.find });
+    }
+    matches.sort((a, b) => a.start - b.start);
+
+    let html = "";
+    let cursor = 0;
+    for (const m of matches) {
+      if (m.start < cursor) continue; // skip overlaps
+      html += stepText.slice(cursor, m.start);
+      html += `<a href="${m.url}" target="_blank" rel="noopener noreferrer" class="step-link">${m.text}<svg class="step-link-icon" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 8L8 2M8 2H4.5M8 2V5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>`;
+      cursor = m.end;
+    }
+    html += stepText.slice(cursor);
+    return html;
+  },
+
+  // ============================================================
   // SINGLE LESSON RENDER
   // ============================================================
   renderLesson(lessonId) {
@@ -660,7 +690,7 @@ window.V1App = {
       node.className = "step-node";
       node.innerHTML = `
         <div class="step-number">${String(i + 1).padStart(2, "0")}</div>
-        <p class="step-text">${step}</p>
+        <p class="step-text">${this._applyStepLinks(step, i, les.id)}</p>
       `;
       pipeline.appendChild(node);
     });
