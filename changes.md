@@ -2,6 +2,16 @@
 
 ---
 
+## 2026-06-29 — Remove all broken hyperlinks from lesson steps
+
+**Prompt:** "remove the hyperlinks they all dont work"
+
+**What was done:**
+- Cleared `js/data/step-links.js` — set `window.V1_STEP_LINKS = {}` so no step text gets hyperlinked. The renderer in `app.js` is left intact in case links are re-added later with working URLs.
+- Instructed the content expansion agent not to include any URLs or markdown links in expanded lesson content.
+
+---
+
 ## 2026-06-29 — Fix dashboard lock on load, live access updates, stuck Save button, admin reorder
 
 **Prompt:** "fix issue of dashboard modules appearing locked on first load; live updates too slow, had to refresh; Save button stuck on Saving; move user management to top of admin panel"
