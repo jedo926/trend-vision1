@@ -1873,20 +1873,26 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 @media (max-width: 768px) {
   :root { --sidebar-w: 0px; }
 
+  /* Prevent horizontal overflow */
+  body, .app-shell, .content-area { overflow-x: hidden; }
+
   .sidebar { transform: translateX(-100%); width: 280px; z-index: 500; }
   .sidebar.mobile-open { transform: translateX(0); box-shadow: var(--sh-lg); }
 
-  /* Header — hide search & mode, keep only essential controls */
-  .app-header { padding: 0 10px; gap: 8px; }
+  /* Header — hide search, keep hamburger / logo / progress / theme */
+  .app-header { padding: 0 12px; gap: 8px; }
   .header-search-region { display: none; }
   .header-start { min-width: unset; gap: 6px; }
-  .header-end { min-width: unset; gap: 6px; }
+  .header-end { min-width: unset; gap: 8px; }
   .search-shortcut { display: none; }
   .mode-selector { display: none; }
   .logo-wordmark { display: none; }
 
+  /* Bigger touch targets in header */
+  .icon-btn { width: 40px; height: 40px; }
+
   /* Content */
-  .content-area { padding: 12px; }
+  .content-area { padding: 10px; }
 
   /* Step pipeline */
   .step-pipeline { display: flex; flex-direction: column; }
@@ -1894,53 +1900,107 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
   .step-node::after { display: none; }
 
   /* Lesson header & body */
-  .lesson-header { padding: 14px 14px 0; }
-  .lesson-title { font-size: 1.1rem; }
-  .lesson-title-row { gap: 8px; margin-bottom: 12px; }
+  .lesson-header { padding: 14px 14px 0; border-radius: 12px; }
+  .lesson-title { font-size: 1.1rem; letter-spacing: -0.02em; }
+  .lesson-title-row { gap: 8px; margin-bottom: 10px; }
   .lesson-body { padding: 14px; }
 
-  /* Tabs — horizontally scrollable */
+  /* Tabs — horizontal scroll, no wrap */
   .lesson-tab-list {
     overflow-x: auto; overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none; flex-wrap: nowrap; gap: 0;
   }
   .lesson-tab-list::-webkit-scrollbar { display: none; }
-  .lesson-tab-btn { white-space: nowrap; flex-shrink: 0; padding: 10px 14px; font-size: 0.78rem; }
+  .lesson-tab-btn {
+    white-space: nowrap; flex-shrink: 0;
+    padding: 11px 16px; font-size: 0.8rem;
+    min-height: 44px;
+  }
 
-  /* Explainer wrap & stage */
-  .explainer-wrap { margin: 1rem 0 1.25rem; }
-  .explainer-stage { min-height: 175px; }
-  .ex-scene { min-height: 175px; padding: 0.85rem 0.85rem 0.7rem; }
+  /* Explainer wrap */
+  .explainer-wrap { margin: 0.85rem 0 1.1rem; }
+  .explainer-stage { min-height: 185px; border-radius: 12px 12px 0 0; }
 
-  /* Flow nodes — compact for narrow screens */
-  .ex-node { min-width: 72px; padding: 0.55rem 0.6rem; }
-  .ex-node-icon { width: 18px; height: 18px; }
-  .ex-node-num { width: 16px; height: 16px; font-size: 0.58rem; }
-  .ex-node-label { font-size: 0.62rem; max-width: 64px; }
-  .ex-conn { min-width: 14px; }
+  /* Scene — reduce padding, allow height to grow */
+  .ex-scene { min-height: 185px; padding: 0.75rem 0.8rem 0.65rem; }
 
-  /* Dashboard — tighter grid */
-  .ex-dash-grid { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 0.35rem; }
-  .ex-widget { padding: 0.55rem 0.6rem; }
-  .ex-widget-val { font-size: 1.2rem; }
+  /* Flow: horizontal scroll so nodes never break onto next line */
+  .ex-flow-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .ex-flow-row::-webkit-scrollbar { display: none; }
+  .ex-node { min-width: 76px; padding: 0.55rem 0.65rem; flex-shrink: 0; }
+  .ex-node-icon { width: 20px; height: 20px; }
+  .ex-node-num { width: 17px; height: 17px; font-size: 0.6rem; }
+  .ex-node-label { font-size: 0.63rem; max-width: 68px; }
+  .ex-conn { min-width: 18px; flex-shrink: 0; }
+
+  /* Dashboard — 2 columns minimum on mobile */
+  .ex-dash-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.4rem; }
+  .ex-widget { padding: 0.6rem 0.65rem; }
+  .ex-widget-val { font-size: 1.25rem; }
+
+  /* Network scene fits naturally via % positions — just ensure height */
+  .ex-net-canvas { min-height: 150px; }
 
   /* Step nav */
-  .ex-step-nav { padding: 8px 0 2px; gap: 8px; }
-  .ex-nav-label { font-size: 0.73rem; min-width: 68px; }
+  .ex-step-nav { padding: 10px 0 4px; gap: 10px; }
+  .ex-nav-btn { width: 36px; height: 36px; }
+  .ex-nav-label { font-size: 0.8rem; min-width: 76px; }
 
-  /* Play button full-width */
-  .play-explainer-btn { width: 100%; justify-content: center; }
+  /* Play button — full width, bigger tap target */
+  .play-explainer-btn {
+    width: 100%; justify-content: center;
+    padding: 0.65rem 1rem; font-size: 0.85rem;
+  }
 
-  /* AI nudge — avoid overlapping FAB */
-  .ai-nudge { right: 12px; width: calc(100vw - 80px); max-width: 230px; }
+  /* AI nudge — sits left of FAB */
+  .ai-nudge { right: 12px; width: calc(100vw - 80px); max-width: 240px; }
+  .ai-nudge-arrow { right: 22px; }
 
-  /* Chat panel — full-width bottom sheet */
-  .chat-panel { width: 100vw; right: 0; border-radius: 16px 16px 0 0; }
-  .chat-panel.open { bottom: 0; }
+  /* ── Chat panel — full-height bottom sheet ── */
+  .chat-panel {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    width: 100%;
+    height: 80vh;
+    max-height: 80vh;
+    border-radius: 20px 20px 0 0;
+    transform: translateY(100%);
+    opacity: 1;
+  }
+  .chat-panel.open {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  /* Drag handle visual cue */
+  .chat-header::before {
+    content: "";
+    position: absolute;
+    top: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 36px; height: 4px;
+    background: var(--s3);
+    border-radius: 2px;
+  }
+  .chat-header { position: relative; padding-top: 20px; }
+  .chat-messages { padding: 14px; gap: 10px; }
+  .chat-msg { font-size: 0.85rem; max-width: 92%; }
+  .chat-input { font-size: 0.9rem; padding: 10px 16px; }
+  .chat-send-btn { width: 40px; height: 40px; }
+  .chat-input-row { padding: 12px 14px 20px; } /* extra bottom for home bar */
 
-  /* Welcome */
-  .welcome-heading { font-size: 1.6rem; }
+  /* FAB — keep clear of content */
+  .chat-fab { bottom: 20px; right: 16px; width: 52px; height: 52px; }
+
+  /* Welcome screen */
+  .welcome-heading { font-size: 1.5rem; }
   .modules-grid { gap: 10px; }
 }
 
@@ -2219,29 +2279,36 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
 @media (max-width: 480px) {
   .content-area { padding: 8px; }
   .lesson-header { padding: 12px 12px 0; border-radius: 10px; }
-  .lesson-title { font-size: 0.98rem; }
+  .lesson-title { font-size: 0.95rem; }
   .lesson-title-row { flex-direction: column; align-items: flex-start; gap: 6px; }
   .lesson-header-actions { width: 100%; justify-content: space-between; }
   .lesson-body { padding: 12px; }
   .lesson-time-tag { display: none; }
 
-  /* Further compact scene on tiny phones */
-  .ex-scene { min-height: 152px; padding: 0.6rem 0.6rem 0.5rem; }
-  .explainer-stage { min-height: 152px; }
-  .ex-node { min-width: 60px; padding: 0.4rem 0.45rem; }
-  .ex-node-icon { width: 15px; height: 15px; }
-  .ex-node-num { width: 14px; height: 14px; font-size: 0.52rem; }
-  .ex-node-label { font-size: 0.56rem; max-width: 56px; }
-  .ex-conn { min-width: 8px; }
-  .ex-dash-grid { grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 0.28rem; }
-  .ex-widget { padding: 0.4rem 0.45rem; }
-  .ex-widget-val { font-size: 1rem; margin-bottom: 0.2rem; }
+  /* Scene — still let nodes scroll horizontally, just smaller */
+  .ex-scene { min-height: 160px; padding: 0.6rem 0.65rem 0.5rem; }
+  .explainer-stage { min-height: 160px; }
+  .ex-node { min-width: 65px; padding: 0.45rem 0.5rem; }
+  .ex-node-icon { width: 16px; height: 16px; }
+  .ex-node-num { width: 15px; height: 15px; font-size: 0.55rem; }
+  .ex-node-label { font-size: 0.58rem; max-width: 60px; }
+  .ex-conn { min-width: 12px; }
+
+  /* Dashboard tighter on small phones */
+  .ex-dash-grid { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 0.3rem; }
+  .ex-widget { padding: 0.45rem 0.5rem; }
+  .ex-widget-val { font-size: 1.05rem; margin-bottom: 0.2rem; }
   .ex-spark { height: 18px; margin-bottom: 0.2rem; }
   .ex-dash-top { padding: 0.28rem 0.5rem; font-size: 0.65rem; }
+
+  /* Chat bottom padding for home indicator */
+  .chat-input-row { padding-bottom: 28px; }
+  .chat-panel { height: 85vh; max-height: 85vh; }
 }
 
 @media (max-width: 540px) {
-  .chat-panel { width: calc(100vw - 24px); right: 12px; }
+  /* chat-panel handled in 768px block as full bottom sheet */
+  .chat-panel { width: 100%; right: 0; }
 }
 
 .chat-input-row {
