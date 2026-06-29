@@ -2232,6 +2232,24 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
   30%            { transform: translateY(-5px); opacity: 1; }
 }
 
+.chat-list {
+  margin: 4px 0 4px 4px;
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.chat-list li { font-size: 0.8rem; line-height: 1.5; color: var(--t1); }
+.chat-msg.assistant p { margin: 3px 0; }
+.chat-inline-code {
+  background: var(--s3);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  color: var(--t1);
+}
+
 .chat-sources {
   margin-top: 8px;
   padding-top: 8px;

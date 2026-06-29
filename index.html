@@ -329,35 +329,65 @@
         return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
       }
 
-      function findRelatedLessons(question) {
+      // Score lessons against question + answer text — searches title, description, and steps
+      function findRelatedLessons(question, answerText) {
         if (!window.V1_MODULES) return [];
-        const words = question.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-        const matches = [];
+        const stop = new Set(['this','that','what','with','from','have','will','your','about','when','they','them','their','which','would','could','should','does','into','also','more','some','been','than','then']);
+        const combined = (question + ' ' + (answerText || '')).toLowerCase();
+        const words = [...new Set(combined.split(/\W+/).filter(w => w.length > 4 && !stop.has(w)))];
+        if (!words.length) return [];
+        const scored = [];
         for (const mod of window.V1_MODULES) {
           for (const les of (mod.lessons || [])) {
-            const t = les.title.toLowerCase();
-            if (words.some(w => t.includes(w))) matches.push(les);
-            if (matches.length >= 3) return matches;
+            const haystack = [
+              les.title,
+              les.content?.whatThisMeans || '',
+              les.content?.scenario || '',
+              ...(les.content?.steps || [])
+            ].join(' ').toLowerCase();
+            const hits = words.filter(w => haystack.includes(w)).length;
+            if (hits > 0) scored.push({ les, hits });
           }
         }
-        return matches;
+        return scored.sort((a, b) => b.hits - a.hits).slice(0, 3).map(x => x.les);
+      }
+
+      // Render markdown-lite: **bold**, `code`, - bullet lists
+      function renderMarkdown(raw) {
+        const lines = raw.split('\n');
+        const out = [];
+        let inList = false;
+        for (const line of lines) {
+          const safe = escapeHtml(line);
+          const styled = safe
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/`([^`]+)`/g, '<code class="chat-inline-code">$1</code>');
+          if (/^[-•*]\s/.test(line)) {
+            if (!inList) { out.push('<ul class="chat-list">'); inList = true; }
+            out.push(`<li>${styled.replace(/^[-•*]\s+/, '')}</li>`);
+          } else {
+            if (inList) { out.push('</ul>'); inList = false; }
+            if (styled.trim()) out.push(`<p>${styled}</p>`);
+          }
+        }
+        if (inList) out.push('</ul>');
+        return out.join('');
       }
 
       function renderAnswer(text, sources, question) {
-        const paras = text.split(/\n{2,}/).map(p => `<p>${escapeHtml(p.trim())}</p>`).join("");
-        let html = paras;
+        let html = renderMarkdown(text);
         if (sources && sources.length) {
           const links = sources.map(s =>
             `<a class="chat-source-link" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a>`
           ).join("");
           html += `<div class="chat-sources"><span class="chat-sources-label">Sources</span>${links}</div>`;
         }
-        const lessons = findRelatedLessons(question);
+        const lessons = findRelatedLessons(question, text);
         if (lessons.length) {
           const btns = lessons.map(l =>
             `<button class="chat-lesson-link" data-lesson="${escapeHtml(l.id)}">${escapeHtml(l.title)}</button>`
           ).join("");
-          html += `<div class="chat-lessons"><span class="chat-lessons-label">Related lessons in this course</span>${btns}</div>`;
+          html += `<div class="chat-lessons"><span class="chat-lessons-label">Related lessons</span>${btns}</div>`;
         }
         return html;
       }

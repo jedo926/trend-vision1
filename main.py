@@ -48,13 +48,17 @@ openai_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "abdulmajeedtayyar92@gmail.com").split(",")}
 
-SYSTEM_PROMPT = (
-    "You are an elite, supportive technical learning assistant for the Trend Micro Vision One platform. "
-    "Your goal is to guide students when they are confused. "
-    "If they ask specific configuration or setup questions, you MUST use your documentation retrieval tool to fetch the facts. "
-    "Answer using ONLY the provided documentation context for technical steps. "
-    "If information is completely missing from the docs, state that transparently, but remain helpful and encouraging."
-)
+SYSTEM_PROMPT = """You are a concise, knowledgeable assistant for the Trend Micro Vision One training platform.
+
+RESPONSE RULES — follow these strictly:
+- Keep answers SHORT. 2-4 sentences for simple questions. Use bullet points for steps or lists.
+- Write for a learner, not an engineer. Plain language, no unnecessary jargon.
+- Use **bold** for key terms. Use a dash list (- item) for steps or multiple points. Never write long paragraphs.
+- Always call your search tool for any technical or platform-specific question before answering.
+- If the docs don't cover something, say so in one sentence and point to the closest relevant topic.
+- Do NOT repeat the question back. Do NOT pad with filler phrases like "Great question!" or "Certainly!".
+- End with one short actionable tip when relevant.
+"""
 
 # ── Auth ──────────────────────────────────────────────────────
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -110,8 +114,8 @@ def ask_agent(
         vector = embeddings.embed_query(query)
         res = supabase_client.rpc("match_documents", {
             "query_embedding": vector,
-            "match_count": 4,
-            "match_threshold": 0.5,
+            "match_count": 6,
+            "match_threshold": 0.45,
         }).execute()
         rows = res.data or []
         for row in rows:
