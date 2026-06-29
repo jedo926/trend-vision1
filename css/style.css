@@ -3205,8 +3205,27 @@ body.sidebar-collapsed .content-area { margin-left: 0; }
   border-radius: 20px;
 }
 
-.sidebar-module-row.mod-admin-locked { opacity: 0.45; cursor: not-allowed; }
-.sidebar-module-row.mod-admin-locked .module-chevron { color: var(--t3); }
+/* ── Admin lock: consistent amber treatment across all nav areas ── */
+:root { --lock-color: #e8a020; --lock-dim: rgba(232,160,32,.12); }
+
+/* Sidebar: module row */
+.sidebar-module-row.mod-admin-locked { opacity: 0.6; cursor: not-allowed; }
+.sidebar-module-row.mod-admin-locked:hover { background: transparent; }
+.sidebar-module-row.mod-admin-locked .module-chevron { color: var(--lock-color); }
+.module-lock-pill { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--lock-color); background: var(--lock-dim); border: 1px solid rgba(232,160,32,.3); padding: 1px 6px; border-radius: 20px; white-space: nowrap; }
+
+/* Sidebar: lesson row */
+.sidebar-lesson-row.admin-locked { opacity: 0.45; cursor: not-allowed; pointer-events: auto; }
+.sidebar-lesson-row.admin-locked .lesson-status-icon { color: var(--lock-color) !important; }
+
+/* Progress dropdown: locked module section */
+.dropdown-module-section.admin-locked h5 { color: var(--lock-color); border-left-color: var(--lock-color); opacity: 0.85; }
+.dropdown-lock-pill { display: inline-block; font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--lock-color); background: var(--lock-dim); border: 1px solid rgba(232,160,32,.3); padding: 1px 5px; border-radius: 20px; margin-left: 6px; vertical-align: 1px; }
+
+/* Progress dropdown: locked lesson row */
+.dropdown-lesson-row.admin-locked { opacity: 0.45; cursor: not-allowed; }
+.dropdown-lesson-row.admin-locked:hover { background: transparent; color: var(--t2); }
+.dropdown-lesson-row.admin-locked .lesson-status-icon { color: var(--lock-color); }
 
 .module-card-request-btn { display: block; width: 100%; margin-top: 8px; padding: 9px 0; border-radius: 8px; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background .15s, color .15s; }
 .module-card-request-btn:hover { background: var(--accent); color: #fff; }

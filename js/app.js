@@ -225,10 +225,17 @@ window.V1App = {
       const meta = document.createElement("div");
       meta.className = "module-meta";
 
-      const pct = document.createElement("span");
-      pct.className = "module-percent";
-      pct.textContent = "0%";
-      meta.appendChild(pct);
+      if (modAdminLocked) {
+        const lockPill = document.createElement("span");
+        lockPill.className = "module-lock-pill";
+        lockPill.textContent = "Locked";
+        meta.appendChild(lockPill);
+      } else {
+        const pct = document.createElement("span");
+        pct.className = "module-percent";
+        pct.textContent = "0%";
+        meta.appendChild(pct);
+      }
 
       modRow.appendChild(chevron);
       modRow.appendChild(titleSpan);
@@ -321,21 +328,29 @@ window.V1App = {
     const completed = window.V1Storage.getCompleted();
 
     window.V1_MODULES.forEach((mod) => {
+      const modLocked = !isModuleAllowed(mod.id);
+
       const sec = document.createElement("div");
-      sec.className = "dropdown-module-section";
+      sec.className = "dropdown-module-section" + (modLocked ? " admin-locked" : "");
 
       const h5 = document.createElement("h5");
-      h5.textContent = mod.title;
+      if (modLocked) {
+        h5.innerHTML = `<svg width="10" height="10" viewBox="0 0 13 13" fill="none" style="margin-right:4px;vertical-align:-1px;opacity:.8"><rect x="2.5" y="5.5" width="8" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M4 5.5V4A2.5 2.5 0 019 4v1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>${mod.title}<span class="dropdown-lock-pill">Admin Locked</span>`;
+      } else {
+        h5.textContent = mod.title;
+      }
       sec.appendChild(h5);
 
       mod.lessons.forEach(les => {
         const row = document.createElement("div");
-        row.className = "dropdown-lesson-row";
+        row.className = "dropdown-lesson-row" + (modLocked ? " admin-locked" : "");
         row.setAttribute("data-id", les.id);
 
         const icon = document.createElement("span");
-        icon.className = "lesson-status-icon" + (completed.has(les.id) ? " completed" : " pending");
-        icon.innerHTML = completed.has(les.id) ? "✓" : "○";
+        icon.className = "lesson-status-icon" + (modLocked ? " locked" : completed.has(les.id) ? " completed" : " pending");
+        icon.innerHTML = modLocked
+          ? `<svg width="10" height="10" viewBox="0 0 13 13" fill="none"><rect x="2.5" y="5.5" width="8" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M4 5.5V4A2.5 2.5 0 019 4v1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`
+          : completed.has(les.id) ? "✓" : "○";
 
         const text = document.createElement("span");
         text.textContent = les.title;

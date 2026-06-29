@@ -2,6 +2,18 @@
 
 ---
 
+## 2026-06-29 — Clear lock indicators across all navigation areas
+
+**Prompt:** "add a clear way on all navigation to know whats locked in the ui"
+
+**What was done:**
+- **Progress dropdown** (biggest gap — had zero visual lock state): locked module section headers now show a lock SVG icon + amber "Admin Locked" pill badge; locked lesson rows show lock icon instead of ○/✓ and are dimmed/not-clickable
+- **Sidebar module rows**: replaced the subtle dimmed state with a visible amber "Locked" pill badge in the right meta area (where % progress shows for unlocked modules); lock icon in chevron position is now amber-colored
+- **Sidebar lesson rows**: lock icon now renders in amber (consistent with the pill color)
+- **CSS**: introduced `--lock-color: #e8a020` and `--lock-dim` CSS vars used everywhere so the lock treatment is visually identical across all three nav areas; hover states removed on locked items so they don't look interactive
+
+---
+
 ## 2026-06-29 — Add name + role to signup form
 
 **Prompt:** "also into the sign up flow add a section for name and role thats important for manageing people"
