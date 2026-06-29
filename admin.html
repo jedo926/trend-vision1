@@ -167,52 +167,6 @@
 
   <div class="main">
 
-    <!-- Health -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">System Health</span>
-        <button class="btn btn-outline btn-sm" id="refresh-health-btn">Refresh</button>
-      </div>
-      <div class="card-body">
-        <div class="health-grid" id="health-grid">
-          <div class="health-item"><div class="health-label">Backend</div><div class="health-value" id="h-backend">—</div></div>
-          <div class="health-item"><div class="health-label">Supabase</div><div class="health-value" id="h-supabase">—</div></div>
-          <div class="health-item"><div class="health-label">Documents</div><div class="health-value" id="h-docs">—</div></div>
-          <div class="health-item"><div class="health-label">Users</div><div class="health-value" id="h-users">—</div></div>
-          <div class="health-item"><div class="health-label">Docling</div><div class="health-value" id="h-docling">—</div></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Document Ingestion -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Document Ingestion</span>
-        <button class="btn btn-danger btn-sm" id="clear-docs-btn">Clear All Docs</button>
-      </div>
-      <div class="card-body">
-        <div class="upload-zone" id="upload-zone">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M16 4v18M9 11l7-7 7 7" stroke="#8b949e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 24h22" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/></svg>
-          <p><strong>Click to upload</strong> or drag & drop a file here</p>
-          <p style="font-size:.78rem;margin-top:4px">PDF, Word (.docx), PowerPoint (.pptx), Excel, HTML, Markdown, plain text</p>
-          <input type="file" id="file-input" accept=".pdf,.docx,.pptx,.xlsx,.html,.htm,.md,.txt,.csv">
-        </div>
-        <div class="progress-bar-wrap" id="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
-        <div id="ingest-status"></div>
-
-        <!-- Docs table -->
-        <div style="margin-top:24px;">
-          <div style="font-size:.78rem;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Ingested Documents</div>
-          <div class="table-wrap">
-            <table id="docs-table">
-              <thead><tr><th>Title / Source</th><th>ID</th><th></th></tr></thead>
-              <tbody id="docs-tbody"><tr class="empty-row"><td colspan="3">Loading...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Users -->
     <div class="card">
       <div class="card-header">
@@ -264,6 +218,52 @@
             <thead><tr><th>User</th><th>Module Requested</th><th>Requested</th><th></th></tr></thead>
             <tbody id="requests-tbody"><tr class="empty-row"><td colspan="4">Loading...</td></tr></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Health -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">System Health</span>
+        <button class="btn btn-outline btn-sm" id="refresh-health-btn">Refresh</button>
+      </div>
+      <div class="card-body">
+        <div class="health-grid" id="health-grid">
+          <div class="health-item"><div class="health-label">Backend</div><div class="health-value" id="h-backend">—</div></div>
+          <div class="health-item"><div class="health-label">Supabase</div><div class="health-value" id="h-supabase">—</div></div>
+          <div class="health-item"><div class="health-label">Documents</div><div class="health-value" id="h-docs">—</div></div>
+          <div class="health-item"><div class="health-label">Users</div><div class="health-value" id="h-users">—</div></div>
+          <div class="health-item"><div class="health-label">Docling</div><div class="health-value" id="h-docling">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Document Ingestion -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Document Ingestion</span>
+        <button class="btn btn-danger btn-sm" id="clear-docs-btn">Clear All Docs</button>
+      </div>
+      <div class="card-body">
+        <div class="upload-zone" id="upload-zone">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M16 4v18M9 11l7-7 7 7" stroke="#8b949e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 24h22" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/></svg>
+          <p><strong>Click to upload</strong> or drag & drop a file here</p>
+          <p style="font-size:.78rem;margin-top:4px">PDF, Word (.docx), PowerPoint (.pptx), Excel, HTML, Markdown, plain text</p>
+          <input type="file" id="file-input" accept=".pdf,.docx,.pptx,.xlsx,.html,.htm,.md,.txt,.csv">
+        </div>
+        <div class="progress-bar-wrap" id="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+        <div id="ingest-status"></div>
+
+        <!-- Docs table -->
+        <div style="margin-top:24px;">
+          <div style="font-size:.78rem;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Ingested Documents</div>
+          <div class="table-wrap">
+            <table id="docs-table">
+              <thead><tr><th>Title / Source</th><th>ID</th><th></th></tr></thead>
+              <tbody id="docs-tbody"><tr class="empty-row"><td colspan="3">Loading...</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -521,6 +521,8 @@
   window.closeModuleModal = () => {
     document.getElementById("module-modal").style.display = "none";
     _modalUserId = null;
+    const btn = document.getElementById("save-modules-btn");
+    if (btn) { btn.disabled = false; btn.textContent = "Save Access"; }
   };
 
   window.saveModules = async () => {

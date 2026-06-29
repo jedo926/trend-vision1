@@ -1325,19 +1325,23 @@ window.V1App = {
   // TOAST (locked-step warning only)
   // ============================================================
   showBadgeToast(badgeId) {
-    if (badgeId !== "locked-step" && badgeId !== "admin-locked") return;
     const toast = document.createElement("div");
-    toast.className = "badge-toast warning animate-in";
-    const msg = badgeId === "admin-locked"
-      ? `<span class="toast-ribbon">Module Locked</span><span class="toast-badge-name">Contact your admin to unlock this module.</span>`
-      : `<span class="toast-ribbon">Access Restricted</span><span class="toast-badge-name">Complete previous lessons first.</span>`;
-    toast.innerHTML = msg;
+    if (badgeId === "access-granted") {
+      toast.className = "badge-toast success animate-in";
+      toast.innerHTML = `<span class="toast-ribbon">Access Granted</span><span class="toast-badge-name">New modules are now available.</span>`;
+    } else if (badgeId === "admin-locked") {
+      toast.className = "badge-toast warning animate-in";
+      toast.innerHTML = `<span class="toast-ribbon">Module Locked</span><span class="toast-badge-name">Contact your admin to unlock this module.</span>`;
+    } else if (badgeId === "locked-step") {
+      toast.className = "badge-toast warning animate-in";
+      toast.innerHTML = `<span class="toast-ribbon">Access Restricted</span><span class="toast-badge-name">Complete previous lessons first.</span>`;
+    } else { return; }
     document.body.appendChild(toast);
     setTimeout(() => {
       toast.classList.remove("animate-in");
       toast.classList.add("animate-out");
       setTimeout(() => toast.remove(), 350);
-    }, 3000);
+    }, 3500);
   }
 };
 

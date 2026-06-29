@@ -2,6 +2,19 @@
 
 ---
 
+## 2026-06-29 — Fix dashboard lock on load, live access updates, stuck Save button, admin reorder
+
+**Prompt:** "fix issue of dashboard modules appearing locked on first load; live updates too slow, had to refresh; Save button stuck on Saving; move user management to top of admin panel"
+
+**What was done:**
+- **Dashboard locked on first load** (root cause): `renderWelcome()` was never called after profile loaded — only sidebar/progress were. Fixed by calling `window.V1App.renderWelcome()` in `_applyProfile()` in `auth.js` when no lesson is active.
+- **Live access updates** (`auth.js`): Added 20-second profile poll using the fresh Supabase session token. On `allowed_modules` change, re-renders all three nav areas instantly. Shows a green "Access Granted" toast when new modules are unlocked.
+- **Stuck "Saving…" button** (`admin.html`): `closeModuleModal()` now resets `btn.disabled = false` and `btn.textContent = "Save Access"` on every close, so reopening the modal for another user always shows a fresh button.
+- **Admin panel section order** (`admin.html`): Users moved to top, Module Access Requests directly beneath it, then Health and Document Ingestion below.
+- **Green success toast**: Added `badge-toast.success` CSS + `"access-granted"` case to `showBadgeToast()`.
+
+---
+
 ## 2026-06-29 — Clear lock indicators across all navigation areas
 
 **Prompt:** "add a clear way on all navigation to know whats locked in the ui"
