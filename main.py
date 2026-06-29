@@ -255,7 +255,7 @@ def ask_agent(
         llm_callable=llm_callable,
         request_id=request.headers.get("x-request-id"),
     )
-    return {"answer": fw.answer, "sources": fw.sources}
+    return {"answer": fw.answer}
 
 # ── Admin endpoints ───────────────────────────────────────────
 @app.get("/admin/health")

@@ -377,12 +377,6 @@
 
       function renderAnswer(text, sources, question) {
         let html = renderMarkdown(text);
-        if (sources && sources.length) {
-          const links = sources.map(s =>
-            `<a class="chat-source-link" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a>`
-          ).join("");
-          html += `<div class="chat-sources"><span class="chat-sources-label">Sources</span>${links}</div>`;
-        }
         const lessons = findRelatedLessons(question, text);
         if (lessons.length) {
           const btns = lessons.map(l =>
