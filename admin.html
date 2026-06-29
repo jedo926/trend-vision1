@@ -468,7 +468,11 @@
         </td>
       </tr>`).join("");
     } catch (e) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="4">Error: ${esc(e.message)}</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="4">${
+        String(e.message).toLowerCase().includes("access_request")
+          ? '⚠️ Table not found — click the Setup button at the top and run the SQL in your Supabase dashboard.'
+          : 'Error: ' + esc(String(e.message))
+      }</td></tr>`;
     }
   }
   document.getElementById("refresh-requests-btn").addEventListener("click", loadAccessRequests);
