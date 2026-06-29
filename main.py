@@ -205,6 +205,10 @@ from llm.firewall.pipeline import get_pipeline
 class QueryRequest(BaseModel):
     question: str
 
+class ProfileUpdateRequest(BaseModel):
+    name: str
+    role: str
+
 # ── Public endpoints ──────────────────────────────────────────
 @app.get("/health")
 def health():
@@ -305,7 +309,10 @@ def list_users(user=Depends(verify_admin)):
             "created_at": str(u.created_at),
             "last_sign_in": str(u.last_sign_in_at),
             "approved": True if is_adm else profile.get("approved", False),
+            "declined": False if is_adm else profile.get("declined", False),
             "allowed_modules": None if is_adm else profile.get("allowed_modules", DEFAULT_MODULES),
+            "name": profile.get("name"),
+            "role": profile.get("role"),
             "is_admin": is_adm,
         })
     return {"users": users, "total": len(users)}
@@ -323,7 +330,7 @@ def delete_user(user_id: str, admin=Depends(verify_admin)):
 def get_my_profile(user=Depends(verify_token)):
     is_adm = (user.email or "").lower() in ADMIN_EMAILS
     if is_adm:
-        return {"user_id": str(user.id), "approved": True, "allowed_modules": None, "is_admin": True}
+        return {"user_id": str(user.id), "approved": True, "allowed_modules": None, "is_admin": True, "name": None, "role": None, "declined": False}
     try:
         res = supabase_client.table("user_profiles").select("*").eq("user_id", str(user.id)).execute()
         if res.data:
@@ -331,22 +338,39 @@ def get_my_profile(user=Depends(verify_token)):
     except Exception:
         pass
     # First visit — create default profile
-    profile = {"user_id": str(user.id), "approved": False, "allowed_modules": DEFAULT_MODULES}
+    profile = {"user_id": str(user.id), "approved": False, "declined": False, "allowed_modules": DEFAULT_MODULES}
     try:
         supabase_client.table("user_profiles").insert(profile).execute()
     except Exception:
         pass
-    return {**profile, "is_admin": False}
+    return {**profile, "is_admin": False, "name": None, "role": None}
+
+@app.put("/me/profile")
+def update_my_profile(body: ProfileUpdateRequest, user=Depends(verify_token)):
+    is_adm = (user.email or "").lower() in ADMIN_EMAILS
+    if is_adm:
+        raise HTTPException(status_code=400, detail="Admin profile is system-managed")
+    name = body.name.strip()[:120]
+    role = body.role.strip()[:120]
+    if not name or not role:
+        raise HTTPException(status_code=422, detail="Name and role are required")
+    _upsert_profile(str(user.id), {"name": name, "role": role})
+    return {"updated": True}
 
 @app.post("/admin/users/{user_id}/approve")
 def approve_user(user_id: str, admin=Depends(verify_admin)):
-    _upsert_profile(user_id, {"approved": True})
+    _upsert_profile(user_id, {"approved": True, "declined": False})
     return {"approved": True}
 
 @app.delete("/admin/users/{user_id}/approve")
 def revoke_approval(user_id: str, admin=Depends(verify_admin)):
     _upsert_profile(user_id, {"approved": False})
     return {"approved": False}
+
+@app.post("/admin/users/{user_id}/decline")
+def decline_user(user_id: str, admin=Depends(verify_admin)):
+    _upsert_profile(user_id, {"approved": False, "declined": True})
+    return {"declined": True}
 
 @app.put("/admin/users/{user_id}/modules")
 def set_user_modules(user_id: str, body: dict, admin=Depends(verify_admin)):
@@ -358,10 +382,18 @@ def set_user_modules(user_id: str, body: dict, admin=Depends(verify_admin)):
 def setup_profiles_sql(admin=Depends(verify_admin)):
     sql = """CREATE TABLE IF NOT EXISTS user_profiles (
   user_id UUID PRIMARY KEY,
+  name TEXT,
+  role TEXT,
   approved BOOLEAN DEFAULT FALSE,
+  declined BOOLEAN DEFAULT FALSE,
   allowed_modules TEXT[] DEFAULT ARRAY['intro','getting-started','dashboards'],
   created_at TIMESTAMPTZ DEFAULT NOW()
-);"""
+);
+
+-- If table already exists, add the new columns:
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS role TEXT;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS declined BOOLEAN DEFAULT FALSE;"""
     return {"sql": sql}
 
 @app.get("/admin/documents")

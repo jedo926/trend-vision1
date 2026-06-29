@@ -20,7 +20,7 @@ window.V1Auth = (function () {
       }
     });
 
-    // Restore existing session (fires before onAuthStateChange on some clients)
+    // Restore existing session
     _client.auth.getSession().then(async ({ data }) => {
       if (data.session && !_session) {
         _session = data.session;
@@ -37,35 +37,87 @@ window.V1Auth = (function () {
       const res = await fetch(API + "/me/profile", {
         headers: { "Authorization": "Bearer " + session.access_token },
       });
-      if (res.ok) {
-        window.V1Profile = await res.json();
-      } else {
-        window.V1Profile = { approved: true, allowed_modules: null, is_admin: false };
-      }
+      window.V1Profile = res.ok ? await res.json() : { approved: true, allowed_modules: null, is_admin: false };
     } catch (_) {
-      // Network error — allow through so the app isn't permanently broken
       window.V1Profile = { approved: true, allowed_modules: null, is_admin: false };
     }
 
     if (window.V1Profile && !window.V1Profile.approved) {
-      _showPendingScreen();
+      _showPendingScreen(window.V1Profile);
     } else {
       _hidePendingScreen();
       hideAuthWall();
     }
   }
 
-  function _showPendingScreen() {
+  function _showPendingScreen(profile) {
+    // Hide auth wall, show pending overlay
     document.getElementById("auth-wall")?.classList.remove("visible");
     document.getElementById("app-shell-inner")?.classList.add("blurred");
-    const el = document.getElementById("pending-screen");
-    if (el) el.style.display = "flex";
+
+    const screen = document.getElementById("pending-screen");
+    if (!screen) return;
+
+    // Hide all sub-states
+    ["pending-profile-form", "pending-waiting", "pending-declined"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+
+    let subId;
+    if (profile.declined) {
+      subId = "pending-declined";
+    } else if (!profile.name) {
+      subId = "pending-profile-form";
+    } else {
+      subId = "pending-waiting";
+      const nameEl = document.getElementById("pending-user-name");
+      if (nameEl) nameEl.textContent = profile.name + (profile.role ? " · " + profile.role : "");
+    }
+
+    const sub = document.getElementById(subId);
+    if (sub) sub.style.display = "block";
+    screen.style.display = "flex";
   }
 
   function _hidePendingScreen() {
     const el = document.getElementById("pending-screen");
     if (el) el.style.display = "none";
   }
+
+  // Called by the profile form submit button
+  window._submitProfile = async function () {
+    const name = (document.getElementById("profile-name-input")?.value || "").trim();
+    const role = (document.getElementById("profile-role-input")?.value || "").trim();
+    const errEl = document.getElementById("profile-form-error");
+    const btn = document.getElementById("profile-submit-btn");
+
+    if (!name || !role) {
+      if (errEl) { errEl.textContent = "Please fill in both fields."; errEl.style.display = "block"; }
+      return;
+    }
+    if (errEl) errEl.style.display = "none";
+    if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+
+    try {
+      const API = (window.CHAT_API_URL || "").replace(/\/$/, "");
+      const res = await fetch(API + "/me/profile", {
+        method: "PUT",
+        headers: {
+          "Authorization": "Bearer " + (_session ? _session.access_token : ""),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, role }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      // Update local profile and re-render pending screen
+      if (window.V1Profile) { window.V1Profile.name = name; window.V1Profile.role = role; }
+      _showPendingScreen(window.V1Profile);
+    } catch (e) {
+      if (errEl) { errEl.textContent = "Could not save. Please try again."; errEl.style.display = "block"; }
+      if (btn) { btn.disabled = false; btn.textContent = "Send Access Request"; }
+    }
+  };
 
   function getToken() {
     return _session ? _session.access_token : null;

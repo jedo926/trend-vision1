@@ -2,6 +2,19 @@
 
 ---
 
+## 2026-06-29 — Access request form + name/role profile + decline flow
+
+**Prompt:** add a send request and prompt them to add their name and their role and then that info shows up in my admin panel and I'll accept or decline
+
+**What was done:**
+- `main.py` — Added `name`, `role`, `declined` fields to profile system. Added `ProfileUpdateRequest` model. Added `PUT /me/profile` (user submits name+role, 120 char limit). Added `POST /admin/users/{id}/decline` endpoint. Updated `POST /admin/users/{id}/approve` to also reset `declined=False`. Updated `GET /admin/users` and `GET /me/profile` to return `name`, `role`, `declined`. Updated setup SQL to include new columns + `ALTER TABLE` stmts for existing tables.
+- `js/auth.js` — Rewrote `_showPendingScreen` to render one of three sub-states: profile form (no name yet), waiting (name submitted but not approved), or declined. Added `window._submitProfile()` handler that POSTs name+role to `/me/profile` then re-renders.
+- `index.html` — Replaced simple pending screen with multi-state screen: profile form with Name + Role inputs + submit button; waiting state showing user's name and role; declined state with rejection message. All states have Sign Out link.
+- `admin.html` — Users table now has Name/Role column showing submitted info (or "Not submitted" if pending form). Status column shows Approved/Pending/Declined badge + context-appropriate action buttons (Approve+Decline for pending, Revoke for approved, Approve for declined). Added `declineUser()` function.
+- **Supabase migration:** Run SQL from Setup button in Users section to add new columns to existing table.
+
+---
+
 ## 2026-06-29 — User approval + per-module access control
 
 **Prompt:** for any new users they should be approved through the admin panel also i want a dropdown menu for each user so i can check a box and give them or restrict access to modules and if they try to go to a module tell them to ask an admin but let them go and create an account but by default they can only access the first 3 modules
