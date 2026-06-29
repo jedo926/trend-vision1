@@ -486,7 +486,8 @@ async def ingest_document(file: UploadFile = File(...), user=Depends(verify_admi
     suffix = Path(filename).suffix or ".pdf"
     file_bytes = await file.read()
 
-    # Use docling-serve if configured, else markitdown
+    text = ""
+    # Try docling-serve first if configured, fall back to markitdown on failure
     if DOCLING_URL and suffix.lower() in {".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm"}:
         try:
             async with httpx.AsyncClient(timeout=120) as client:
@@ -497,9 +498,10 @@ async def ingest_document(file: UploadFile = File(...), user=Depends(verify_admi
                 resp.raise_for_status()
                 data = resp.json()
                 text = (data.get("document") or {}).get("md_content") or ""
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Docling error: {e}")
-    else:
+        except Exception:
+            text = ""  # will fall through to markitdown below
+
+    if not text.strip():
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             tmp.write(file_bytes)
             tmp_path = tmp.name
