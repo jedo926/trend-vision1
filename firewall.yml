@@ -1,7 +1,7 @@
 input:
   detect_pii: true
   detect_secrets: true
-  topic_guard: true
+  topic_guard: false
   max_prompt_length: 2000
 
 output:
