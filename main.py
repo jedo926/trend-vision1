@@ -1,3 +1,4 @@
+import logging
 import os
 import io
 import tempfile
@@ -5,6 +6,7 @@ import httpx
 from pathlib import Path
 from openai import OpenAI
 from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File
+from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +19,11 @@ from langchain.agents import create_agent
 from langchain.tools import tool
 from supabase.client import create_client
 from markitdown import MarkItDown
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+)
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
@@ -96,42 +103,8 @@ def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str
         i += chunk_size - overlap
     return chunks
 
-# ── Topic guard ───────────────────────────────────────────────
-_ALLOWED_KEYWORDS = {
-    "vision one","trend micro","xdr","edr","siem","soar","endpoint","alert","workbench",
-    "playbook","policy","risk","score","telemetry","threat","malware","ransomware",
-    "phishing","email","cloud","network","identity","soc","incident","response",
-    "detection","investigation","remediation","sensor","agent","connector","integration",
-    "dashboard","module","lesson","course","training","platform","security","cyber",
-    "attack","log","event","rule","filter","search","query","ticket","case","forensic",
-    "behaviour","behavior","artifact","indicator","ioc","mitre","att&ck","zero trust",
-    "privilege","access","authentication","mfa","firewall","proxy","sandbox","deception",
-}
-_BLOCKED_PATTERNS = [
-    "python","javascript","java","c++","c#","golang","rust","ruby","php","code","program",
-    "game","chess","sudoku","rock paper","tic tac","script","function","class","def ","import ",
-    "recipe","cook","movie","song","joke","poem","story","essay","math","calculus","algebra",
-    "homework","write me","build me","create me","make me","generate me",
-]
-
-def _is_off_topic(question: str) -> bool:
-    q = question.lower()
-    # Block if explicitly off-topic pattern found
-    if any(p in q for p in _BLOCKED_PATTERNS):
-        return True
-    # Allow if any Vision One keyword found
-    if any(k in q for k in _ALLOWED_KEYWORDS):
-        return False
-    # Short generic questions (under 6 words) are likely fine — let the model decide
-    if len(q.split()) < 6:
-        return False
-    # Longer questions with no recognisable keyword — block
-    return True
-
-_OFF_TOPIC_REPLY = (
-    "I'm only able to help with Trend Micro Vision One training topics. "
-    "Try asking about a lesson, a platform feature, or a security concept covered in the course."
-)
+# ── LLM Firewall ─────────────────────────────────────────────
+from llm.firewall.pipeline import get_pipeline
 
 # ── Schema ────────────────────────────────────────────────────
 class QueryRequest(BaseModel):
@@ -142,6 +115,14 @@ class QueryRequest(BaseModel):
 def health():
     return {"status": "ok"}
 
+@app.get("/metrics")
+def metrics():
+    from llm.firewall.logging.metrics import get_metrics
+    data, content_type = get_metrics()
+    if data is None:
+        raise HTTPException(status_code=503, detail="prometheus_client not installed")
+    return Response(content=data, media_type=content_type)
+
 @app.post("/query")
 @limiter.limit("20/minute")
 def ask_agent(
@@ -149,43 +130,49 @@ def ask_agent(
     body: QueryRequest,
     user=Depends(verify_token),
 ):
-    if _is_off_topic(body.question):
-        return {"answer": _OFF_TOPIC_REPLY, "sources": []}
+    def llm_callable(question: str):
+        retrieved_docs: list = []
 
-    retrieved_docs = []
+        @tool
+        def search_vision_one_docs(query: str) -> str:
+            """Search Trend Micro Vision One documentation for technical setup, configuration, and platform guidance."""
+            vector = embeddings.embed_query(query)
+            res = supabase_client.rpc("match_documents", {
+                "query_embedding": vector,
+                "match_count": 6,
+                "match_threshold": 0.45,
+            }).execute()
+            rows = res.data or []
+            retrieved_docs.extend(rows)
+            return "\n\n".join(row.get("content", "") for row in rows)
 
-    @tool
-    def search_vision_one_docs(query: str) -> str:
-        """Search Trend Micro Vision One documentation for technical setup, configuration, and platform guidance."""
-        vector = embeddings.embed_query(query)
-        res = supabase_client.rpc("match_documents", {
-            "query_embedding": vector,
-            "match_count": 6,
-            "match_threshold": 0.45,
-        }).execute()
-        rows = res.data or []
-        for row in rows:
-            retrieved_docs.append(row)
-        return "\n\n".join(row.get("content", "") for row in rows)
+        agent = create_agent(
+            model=llm,
+            tools=[search_vision_one_docs],
+            system_prompt=SYSTEM_PROMPT,
+        )
+        result = agent.invoke({"messages": [{"role": "user", "content": question}]})
+        answer = result["messages"][-1].content
 
-    agent = create_agent(
-        model=llm,
-        tools=[search_vision_one_docs],
-        system_prompt=SYSTEM_PROMPT,
+        sources, seen = [], set()
+        for row in retrieved_docs:
+            meta = row.get("metadata") or {}
+            title = meta.get("title", "Documentation Page")
+            url = meta.get("url", "https://docs.trendmicro.com/")
+            if title not in seen:
+                seen.add(title)
+                sources.append({"title": title, "url": url})
+
+        return answer, sources, 0, 0
+
+    fw = get_pipeline().process(
+        question=body.question,
+        user_id=str(user.id),
+        user_email=user.email or "",
+        llm_callable=llm_callable,
+        request_id=request.headers.get("x-request-id"),
     )
-    result = agent.invoke({"messages": [{"role": "user", "content": body.question}]})
-    answer = result["messages"][-1].content
-
-    sources, seen = [], set()
-    for row in retrieved_docs:
-        meta = row.get("metadata") or {}
-        title = meta.get("title", "Documentation Page")
-        url = meta.get("url", "https://docs.trendmicro.com/")
-        if title not in seen:
-            seen.add(title)
-            sources.append({"title": title, "url": url})
-
-    return {"answer": answer, "sources": sources}
+    return {"answer": fw.answer, "sources": fw.sources}
 
 # ── Admin endpoints ───────────────────────────────────────────
 @app.get("/admin/health")

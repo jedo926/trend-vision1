@@ -2,6 +2,39 @@
 
 ---
 
+## 2026-06-29 — Production-grade LLM Firewall
+
+**Prompt:** You are a senior AI Security Engineer and Software Architect. Implement a production-grade, defense-in-depth LLM Firewall around this application's AI capabilities.
+
+**What was done:**
+
+New `llm/firewall/` package — 12 files — sits between FastAPI and the LLM on every `/query` call:
+
+- `llm/firewall/config.py` — loads `firewall.yml` at startup; all thresholds and policies are config-driven with no hardcoded values.
+- `llm/firewall/input/topic_guard.py` — replaces the inline `_is_off_topic()` function; same keyword allow/block logic now as a proper module with a structured `TopicResult` dataclass.
+- `llm/firewall/input/secret_detector.py` — regex-based scanner for OpenAI keys, Anthropic keys, AWS access/secret keys, GitHub tokens, bearer tokens, private keys, API key patterns, and passwords. Blocks the request before it reaches the LLM.
+- `llm/firewall/input/pii_detector.py` — Presidio `AnalyzerEngine` wrapper; degrades gracefully if spaCy model not loaded. Detects PII in input (flags in audit log, does not block by default).
+- `llm/firewall/input/validator.py` — orchestrates all input checks; returns `InputAssessment` with `blocked`, `block_reason`, `risk_score`, and sub-results.
+- `llm/firewall/output/validator.py` — runs Presidio `AnonymizerEngine` to redact PII in responses; scans for system prompt leakage markers.
+- `llm/firewall/policy/engine.py` — config-driven YAML policy: blocked email list, restricted endpoints with role requirements.
+- `llm/firewall/logging/audit.py` — structured JSON audit event logged on every request: request_id, user_id, latency, token counts, guardrails triggered, block reason, risk score.
+- `llm/firewall/logging/metrics.py` — Prometheus counters and histograms: `llm_requests_total`, `llm_blocked_total`, `llm_pii_detected_total`, `llm_secrets_detected_total`, `llm_request_duration_seconds`, `llm_token_usage_total`, `llm_prompt_leak_total`.
+- `llm/firewall/pipeline.py` — `FirewallPipeline.process()` orchestrates: policy → input guard → LLM callable → output guard → audit log → metrics.
+- `firewall.yml` — single config file for all firewall settings.
+- `tests/test_firewall.py` — 24 unit tests covering topic guard, secret detection, input validation, output validation, and policy engine. All 24 pass.
+
+`main.py` changes:
+- Removed inline `_ALLOWED_KEYWORDS`, `_BLOCKED_PATTERNS`, `_is_off_topic()`, `_OFF_TOPIC_REPLY`.
+- `/query` now calls `get_pipeline().process()` passing an `llm_callable` closure.
+- Added `GET /metrics` endpoint (Prometheus scrape target).
+- Added structured logging via `logging.basicConfig`.
+
+`requirements.txt` — added: `presidio-analyzer`, `presidio-anonymizer`, `spacy>=3.7`, `en_core_web_sm` wheel, `prometheus-client`, `pytest`.
+
+`railway.toml` — unchanged; spaCy model is installed via the wheel URL in requirements.txt so nixpacks picks it up at build time.
+
+---
+
 ## 2026-06-29 — Mobile optimisation + AI nudge fix
 
 **Prompt:** optimize for mobile and fix the ai popup its not coming on anymore

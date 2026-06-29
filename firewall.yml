@@ -1,0 +1,23 @@
+input:
+  detect_pii: true
+  detect_secrets: true
+  topic_guard: true
+  max_prompt_length: 2000
+
+output:
+  redact_pii: true
+  detect_prompt_leak: true
+
+models:
+  default: openai/gpt-4o-mini
+
+policy:
+  blocked_emails: []
+  restricted_endpoints: {}
+
+logging:
+  audit: true
+  log_prompts: false
+
+metrics:
+  enabled: true
