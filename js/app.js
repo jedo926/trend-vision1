@@ -364,6 +364,12 @@ window.V1App = {
   // NAVIGATION
   // ============================================================
   navigateToLesson(lessonId) {
+    // Guard: block any path that leads to an admin-locked module
+    const found = this.findLessonData(lessonId);
+    if (found && !isModuleAllowed(found.mod.id)) {
+      this.showBadgeToast("admin-locked");
+      return;
+    }
     this.currentLessonId = lessonId;
     window.V1Storage.setLastLesson(lessonId);
     this.renderLesson(lessonId);

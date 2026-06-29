@@ -2,6 +2,16 @@
 
 ---
 
+## 2026-06-29 — Logout button + enforce module lock on all navigation paths
+
+**Prompt:** add a log out button and also the modules aren't actually locked I can access them through the progress bar and the dashboard
+
+**What was done:**
+- `index.html` — Added logout button (door-with-arrow SVG icon) to `header-end` next to the theme toggle. Wired to `window.V1Auth.signOut()`.
+- `js/app.js` — Added admin-lock guard at the top of `navigateToLesson()`. This is the single chokepoint all navigation flows through (progress bar, dashboard cards, search results, troubleshoot panel, prev/next buttons). Any lesson in a locked module now triggers the "Contact admin" toast and returns before rendering, regardless of how navigation was triggered.
+
+---
+
 ## 2026-06-29 — Remove account approval gate, keep only module access control
 
 **Prompt:** the account when someone goes and tries to create it automatically just let them in the approvals should only be for the modules
