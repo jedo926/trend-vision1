@@ -102,7 +102,7 @@ window.V1Quiz = {
 
   checkAnswers(lessonData, form) {
     const questions = lessonData.quiz.questions;
-    let allCorrect = true;
+    let correctCount = 0;
 
     questions.forEach((q, qIndex) => {
       const qContainer = form.querySelector(`[data-question-index="${qIndex}"]`);
@@ -110,7 +110,6 @@ window.V1Quiz = {
       const feedback = qContainer.querySelector(".quiz-feedback");
 
       if (!selectedInput) {
-        allCorrect = false;
         return;
       }
 
@@ -118,12 +117,12 @@ window.V1Quiz = {
       feedback.style.display = "block";
 
       if (selectedValue === q.correct) {
+        correctCount++;
         qContainer.classList.remove("incorrect");
         qContainer.classList.add("correct");
         feedback.className = "quiz-feedback correct-feedback";
         feedback.innerHTML = "Correct";
       } else {
-        allCorrect = false;
         qContainer.classList.remove("correct");
         qContainer.classList.add("incorrect");
         feedback.className = "quiz-feedback incorrect-feedback";
@@ -131,7 +130,15 @@ window.V1Quiz = {
       }
     });
 
-    if (allCorrect) {
+    const total = questions.length;
+    const percent = Math.round((correctCount / total) * 100);
+    const threshold = lessonData.quiz.passThreshold || 70;
+    const passed = percent >= threshold;
+
+    this.renderScoreSummary(form, correctCount, total, percent, threshold, passed);
+    window.V1Storage.setScore(lessonData.id, { correct: correctCount, total, percent, passed });
+
+    if (passed) {
       // Disable inputs and submit button
       form.querySelectorAll("input").forEach(input => input.disabled = true);
       const submitBtn = form.querySelector(".quiz-submit-btn");
@@ -145,7 +152,68 @@ window.V1Quiz = {
       if (window.V1Progress) {
         window.V1Progress.markComplete(lessonData.id);
       }
+
+      if (lessonData.id === "fa-quiz") {
+        this.showCertificatePrompt(lessonData, percent);
+      }
     }
+  },
+
+  renderScoreSummary(form, correct, total, percent, threshold, passed) {
+    let summary = form.querySelector(".quiz-score-summary");
+    if (!summary) {
+      summary = document.createElement("div");
+      summary.className = "quiz-score-summary";
+      const submitBtn = form.querySelector(".quiz-submit-btn");
+      form.insertBefore(summary, submitBtn);
+    }
+    summary.className = `quiz-score-summary ${passed ? "correct-feedback" : "incorrect-feedback"}`;
+    summary.innerText = passed
+      ? `${correct}/${total} correct — ${percent}% (Passed)`
+      : `${correct}/${total} correct — ${percent}% (Need ${threshold}% to pass)`;
+  },
+
+  showCertificatePrompt(lessonData, percent) {
+    const container = document.getElementById(`quiz-form-${lessonData.id}`)?.parentElement;
+    if (!container || document.getElementById("certificate-prompt")) return;
+
+    const prompt = document.createElement("div");
+    prompt.id = "certificate-prompt";
+    prompt.className = "certificate-prompt";
+    prompt.innerHTML = `
+      <label for="certificate-name-input">Enter your name for your certificate:</label>
+      <input type="text" id="certificate-name-input" value="${window.V1Storage.getCertificateName()}" placeholder="Your name" />
+      <button type="button" class="generate-cert-btn">Generate Certificate</button>
+      <div id="completion-certificate-section">
+        <h2>Certificate of Completion</h2>
+        <p>This certifies that</p>
+        <p class="cert-name"></p>
+        <p>has successfully completed</p>
+        <p class="cert-course">Trend Vision One Core Training</p>
+        <p class="cert-score"></p>
+        <p class="cert-date"></p>
+        <button type="button" class="print-cert-btn">Print Certificate</button>
+      </div>
+    `;
+    container.appendChild(prompt);
+
+    const nameInput = prompt.querySelector("#certificate-name-input");
+    const certSection = prompt.querySelector("#completion-certificate-section");
+
+    const generate = () => {
+      const name = nameInput.value.trim() || "Trainee";
+      window.V1Storage.setCertificateName(name);
+      certSection.querySelector(".cert-name").innerText = name;
+      certSection.querySelector(".cert-score").innerText = `Score: ${percent}%`;
+      certSection.querySelector(".cert-date").innerText = new Date().toLocaleDateString();
+      certSection.style.display = "block";
+    };
+
+    prompt.querySelector(".generate-cert-btn").addEventListener("click", generate);
+    prompt.querySelector(".print-cert-btn").addEventListener("click", () => window.print());
+
+    // Auto-populate if a name was already saved from a previous visit
+    if (window.V1Storage.getCertificateName()) generate();
   },
 
   prefillAndDisable(lessonData, form) {
@@ -170,12 +238,21 @@ window.V1Quiz = {
       }
     });
 
+    const score = window.V1Storage.getScore(lessonData.id);
+    if (score) {
+      this.renderScoreSummary(form, score.correct, score.total, score.percent, lessonData.quiz.passThreshold || 70, true);
+    }
+
     form.querySelectorAll("input").forEach(input => input.disabled = true);
     const submitBtn = form.querySelector(".quiz-submit-btn");
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.innerText = "Completed";
       submitBtn.classList.add("success");
+    }
+
+    if (lessonData.id === "fa-quiz") {
+      this.showCertificatePrompt(lessonData, score ? score.percent : 100);
     }
   }
 };

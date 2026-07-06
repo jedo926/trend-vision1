@@ -557,3 +557,7 @@ CREATE POLICY "service role full access" ON documents USING (true) WITH CHECK (t
 ## Fix: Docling RAG ingestion error fallback
 **Prompt:** "i got this Error: Docling error: when i tried updating the rag"
 **What was done:** Fixed document ingestion in `main.py` — when `DOCLING_URL` is set but Docling is unavailable or errors, the upload now silently falls back to markitdown instead of raising a 502 error that blocked all document uploads.
+
+## 2026-07-06
+- Prompt: "go through all my projects and push them to github and make my github look nice for recruiters + portfolio site"
+- Added README.md, gitignored proprietary PDFs (*.pdf, docs_input/) and __pycache__/.DS_Store (untracked them), committed WIP (css/js/quiz/storage updates, supabase migrations), pushed dev, set dev as default branch, added repo description/topics.

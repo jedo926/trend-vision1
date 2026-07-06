@@ -14,13 +14,17 @@ window.V1Storage = {
         lastLesson: null,
         sidebarOpen: true,
         theme: "light",
-        mode: "reading"
+        mode: "reading",
+        scores: {},
+        certificateName: ""
       };
     }
     try {
       const parsed = JSON.parse(data);
       if (!parsed.theme) parsed.theme = "light";
       if (!parsed.mode) parsed.mode = "reading";
+      if (!parsed.scores) parsed.scores = {};
+      if (!parsed.certificateName) parsed.certificateName = "";
       return parsed;
     } catch (e) {
       console.error("Failed to parse V1 storage data", e);
@@ -31,7 +35,9 @@ window.V1Storage = {
         lastLesson: null,
         sidebarOpen: true,
         theme: "light",
-        mode: "reading"
+        mode: "reading",
+        scores: {},
+        certificateName: ""
       };
     }
   },
@@ -105,6 +111,27 @@ window.V1Storage = {
       // Trigger a custom event to notify UI to show a toast or update
       window.dispatchEvent(new CustomEvent("v1-badge-awarded", { detail: { badgeId } }));
     }
+  },
+
+  getScore(id) {
+    return this._getData().scores?.[id] || null;
+  },
+
+  setScore(id, { correct, total, percent, passed }) {
+    const data = this._getData();
+    if (!data.scores) data.scores = {};
+    data.scores[id] = { correct, total, percent, passed, ts: Date.now() };
+    this._saveData(data);
+  },
+
+  getCertificateName() {
+    return this._getData().certificateName || "";
+  },
+
+  setCertificateName(name) {
+    const data = this._getData();
+    data.certificateName = name;
+    this._saveData(data);
   },
 
   getLastLesson() {

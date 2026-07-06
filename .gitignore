@@ -9,3 +9,8 @@ dist/
 build/
 .vercel/
 .vercel
+
+# proprietary docs — never commit
+*.pdf
+docs_input/
+.claude/

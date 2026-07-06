@@ -2153,7 +2153,8 @@ window.V1_MODULES = [
               correct: 1,
               hint: "Sensors gather metadata to enable search and correlation."
             }
-          ]
+          ],
+          passThreshold: 80
         }
       }
     ]
